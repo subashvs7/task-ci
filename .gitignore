@@ -1,0 +1,7 @@
+vendor/
+uploads/
+application/logs/*.php
+application/cache/*
+*.zip
+*.sql
+.env

@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls \"C:\\\\laragon\\\\www\\\\change-stack\\\\task-ci\\\\application\\\\cache\")",
+      "Read(//c/laragon/www/change-stack/task-ci/application/cache/**)",
+      "Bash(php -r \"echo PHP_VERSION;\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\laragon\\\\www\\\\change-stack\\\\task-ci\\\\application\\\\views\\\\inc\\\\\" -Recurse -File | Select-Object FullName)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\laragon\\\\www\\\\change-stack\\\\task-ci\\\\application\\\\views\\\\page\" -Directory | ForEach-Object { $_.Name })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\laragon\\\\www\\\\change-stack\\\\task-ci\\\\application\\\\views\\\\page\\\\projects\" -File | ForEach-Object { $_.Name })",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git branch *)",
+      "Bash(git remote *)"
+    ]
+  }
+}
