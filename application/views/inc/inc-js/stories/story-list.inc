@@ -30,5 +30,41 @@ jQuery(function ($) {
             }
         });
     });
+    $('#add_epic_select').on('change', function() {
+        var creator = $(this).find(':selected').data('creator');
+        if (creator) {
+            $('#add_display_assignee').text('Auto-assigning to Epic Creator: ' + creator);
+        } else {
+            $('#add_display_assignee').text('-- Auto-assigned --');
+        }
+    });
+
+    $('#edit_story_epic').on('change', function() {
+        var creator = $(this).find(':selected').data('creator');
+        if (creator) {
+            $('#edit_display_assignee').text('Auto-assigning to Epic Creator: ' + creator);
+        } else {
+            $('#edit_display_assignee').text('-- Auto-assigned --');
+        }
+    });
+
+    $('.btn-add-subtask').on('click', function(e) {
+        e.preventDefault();
+        $('#st_story_id').val($(this).data('story'));
+        $('#st_project_id').val($(this).data('project'));
+        $('#st_epic_id').val($(this).data('epic'));
+        
+        var epicTime = parseInt($(this).data('epic-time'), 10);
+        if (!isNaN(epicTime) && epicTime > 0) {
+            var hrs = epicTime / 60;
+            // format to 1 or 2 decimal places if needed, e.g., 5.5
+            hrs = Math.round(hrs * 100) / 100;
+            $('#st_epic_time_display').text(hrs + (hrs === 1 ? ' hr' : ' hrs'));
+        } else {
+            $('#st_epic_time_display').text('Not Set by TL');
+        }
+        
+        $('#addSubTaskModal').modal('show');
+    });
 });
 </script>

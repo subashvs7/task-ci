@@ -13,7 +13,7 @@
   <!-- Filters -->
   <div class="box box-default" style="margin-bottom:10px;">
     <div class="box-body" style="padding:10px 15px;">
-      <form method="get" action="<?php echo site_url('task-kanban') ?>" class="form-inline">
+      <form method="get" action="<?php echo site_url('task-kanban') ?>" class="form-inline" id="kanbanFilterForm">
         <div class="form-group" style="margin-right:10px;">
           <label style="margin-right:5px;">Project</label>
           <select name="project_id" class="form-control input-sm select2" style="min-width:200px;">
@@ -64,6 +64,9 @@
         <?php else: ?>
         <?php foreach ($tasks_in_col as $t):
           $is_overdue = !empty($t['due_date']) && strtotime($t['due_date']) < time() && !in_array($t['status'], array('done','closed'));
+          $logged_h = (float)$t['logged_hours'];
+          $estimated_h = !empty($t['estimated_hours']) ? (float)$t['estimated_hours'] : 0;
+          $is_effort_overdue = $estimated_h > 0 && $logged_h > $estimated_h;
         ?>
         <div class="kanban-card" onclick="window.location='<?php echo site_url('task-detail/' . $t['task_id']); ?>'">
           <div style="border-left:3px solid <?php
@@ -76,12 +79,24 @@
             <span class="badge badge-type-<?php echo $t['type']; ?>" style="font-size:10px;"><?php $tl=TASK_TYPE_OPT; echo isset($tl[$t['type']])?$tl[$t['type']]:$t['type']; ?></span>
             <span class="badge badge-priority-<?php echo $t['priority']; ?>" style="font-size:10px; margin-left:3px;"><?php $pl=TASK_PRIORITY_OPT; echo isset($pl[$t['priority']])?$pl[$t['priority']]:$t['priority']; ?></span>
             <?php if ($is_overdue): ?><span class="badge" style="background:#c0392b; font-size:10px;"><i class="fa fa-exclamation-triangle"></i> Overdue</span><?php endif; ?>
+            <?php if ($is_effort_overdue): ?><span class="badge" style="background:#e74c3c; font-size:10px; margin-left:3px;"><i class="fa fa-warning"></i> <?php echo round($logged_h, 2); ?>h/<?php echo round($estimated_h, 2); ?>h</span><?php endif; ?>
           </div>
           <?php if ($t['assignee_name']): ?>
           <div class="kanban-card-meta" style="margin-top:4px;"><i class="fa fa-user"></i> <?php echo htmlspecialchars($t['assignee_name']); ?></div>
           <?php endif; ?>
+          <?php if (!empty($t['reporter_name'])): ?>
+          <div class="kanban-card-meta" style="margin-top:2px; font-size:10px; color:#777;"><i class="fa fa-user-circle"></i> Assigned By: <?php echo htmlspecialchars($t['reporter_name']); ?></div>
+          <?php endif; ?>
           <div class="kanban-card-meta" style="margin-top:3px;">
-            <i class="fa fa-folder-open" style="font-size:10px;"></i> <small><?php echo htmlspecialchars($t['project_name'] ?: ''); ?></small>
+            <i class="fa fa-folder-open" style="font-size:10px;"></i> 
+            <small>
+              <?php if ($t['project_id']): ?>
+                <a href="#" class="project-link-modal" data-id="<?php echo $t['project_id']; ?>" onclick="event.stopPropagation();"><?php echo htmlspecialchars($t['project_name']); ?></a>
+                <button class="btn btn-xs btn-default btn-view-project-modal" data-id="<?php echo $t['project_id']; ?>" onclick="event.stopPropagation();" style="padding: 0px 2px; border-radius: 2px; font-size: 8px; vertical-align: middle; margin-left: 2px;" title="Quick View Team & Effort"><i class="fa fa-eye"></i></button>
+              <?php else: ?>
+                -
+              <?php endif; ?>
+            </small>
             <?php if ($t['subtask_count'] > 0): ?>&nbsp;<i class="fa fa-sitemap" style="font-size:10px;"></i> <?php echo $t['subtask_count']; ?><?php endif; ?>
             <?php if ($t['comment_count'] > 0): ?>&nbsp;<i class="fa fa-comments" style="font-size:10px;"></i> <?php echo $t['comment_count']; ?><?php endif; ?>
             <?php if ($t['due_date']): ?>&nbsp;<i class="fa fa-calendar" style="font-size:10px;"></i> <?php echo date('d-M', strtotime($t['due_date'])); ?><?php endif; ?>
@@ -127,3 +142,11 @@
 </div>
 
 <?php include_once(VIEWPATH . 'inc/footer.php'); ?>
+
+<script>
+$(document).ready(function() {
+    $('#kanbanFilterForm select').on('change', function() {
+        $('#kanbanFilterForm')[0].submit();
+    });
+});
+</script>

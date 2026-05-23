@@ -71,11 +71,12 @@ class General extends CI_Controller
         $id  = (int)$this->input->post('id');
 
         $allowed_tables = array(
-            'tm_projects'      => 'project_id',
-            'tm_tasks'         => 'task_id',
-            'tm_epics'         => 'epic_id',
-            'tm_user_stories'  => 'story_id',
-            'tm_subtasks'      => 'subtask_id',
+            'tm_projects'         => 'project_id',
+            'tm_tasks'            => 'task_id',
+            'tm_epics'            => 'epic_id',
+            'tm_user_stories'     => 'story_id',
+            'tm_subtasks'         => 'subtask_id',
+            'tm_project_handlers' => 'handler_id',
         );
 
         if (!isset($allowed_tables[$tbl]) || $allowed_tables[$tbl] !== $col) {
@@ -383,7 +384,7 @@ class General extends CI_Controller
         $uid        = $this->_uid();
         $project_id = (int)$this->input->post('project_id');
         $user_id    = (int)$this->input->post('user_id');
-        $role       = $this->input->post('project_role') ?: 'member';
+        $role       = $this->input->post('project_role') ?: 'team_leader';
 
         if (!$project_id || !$user_id) {
             echo json_encode(array('success' => false, 'message' => 'Invalid request.'));
@@ -407,6 +408,21 @@ class General extends CI_Controller
             'added_date'   => date('Y-m-d H:i:s'),
         ));
 
+        // Sync with tm_project_handlers if adding a team leader
+        if ($role === 'team_leader') {
+            $h_exists = $this->db->query("SELECT handler_id FROM tm_project_handlers WHERE project_id=? AND team_leader_id=?", array($project_id, $user_id))->row_array();
+            if ($h_exists) {
+                $this->db->where('handler_id', $h_exists['handler_id'])->update('tm_project_handlers', array('status' => 'active', 'updated_date' => date('Y-m-d H:i:s')));
+            } else {
+                $this->db->insert('tm_project_handlers', array(
+                    'project_id'     => $project_id,
+                    'team_leader_id' => $user_id,
+                    'status'         => 'active',
+                    'created_date'   => date('Y-m-d H:i:s')
+                ));
+            }
+        }
+
         $user = $this->db->query("SELECT name, email, role FROM tm_users WHERE user_id=?", array($user_id))->row_array();
         echo json_encode(array(
             'success'    => true,
@@ -429,7 +445,7 @@ class General extends CI_Controller
         $role      = $this->session->userdata(SESS_HEAD . '_role');
 
         $member = $this->db->query(
-            "SELECT added_by, project_id FROM tm_project_members WHERE member_id=?",
+            "SELECT user_id, added_by, project_id, project_role FROM tm_project_members WHERE member_id=?",
             array($member_id)
         )->row_array();
         if (!$member) {
@@ -442,6 +458,12 @@ class General extends CI_Controller
         }
 
         $this->db->where('member_id', $member_id)->delete('tm_project_members');
+
+        // Sync with tm_project_handlers
+        if ($member['project_role'] === 'team_leader') {
+            $this->db->where(array('project_id' => $member['project_id'], 'team_leader_id' => $member['user_id']))->update('tm_project_handlers', array('status' => 'inactive', 'updated_date' => date('Y-m-d H:i:s')));
+        }
+
         echo json_encode(array('success' => true, 'message' => 'Member removed.'));
     }
 
@@ -458,5 +480,188 @@ class General extends CI_Controller
             'description' => $description,
             'created_date'=> date('Y-m-d H:i:s'),
         ));
+    }
+
+    // -------------------------------------------------------------------------
+    // Project Team & Effort Stats Modal AJAX
+    // -------------------------------------------------------------------------
+
+    public function get_project_team_stats()
+    {
+        $this->_auth();
+        header('Content-Type: application/json');
+
+        $project_id = (int)$this->input->get('project_id');
+        if (!$project_id) {
+            echo json_encode(array('success' => false, 'message' => 'Invalid project ID.'));
+            return;
+        }
+
+        // Fetch project details
+        $project = $this->db->query("
+            SELECT p.*, u.name as owner_name 
+            FROM tm_projects p 
+            LEFT JOIN tm_users u ON u.user_id = p.owner_id 
+            WHERE p.project_id = ? AND p.status_flag = 'Active'
+        ", array($project_id))->row_array();
+
+        if (!$project) {
+            echo json_encode(array('success' => false, 'message' => 'Project not found.'));
+            return;
+        }
+
+        // Calculate overall tasks and completion
+        $tasks_stat = $this->db->query("
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN status IN ('done','closed') THEN 1 ELSE 0 END) as done
+            FROM tm_tasks 
+            WHERE project_id = ? AND status_flag = 'Active'
+        ", array($project_id))->row_array();
+
+        $project['total_tasks'] = (int)$tasks_stat['total'];
+        $project['done_tasks'] = (int)$tasks_stat['done'];
+        $project['progress_pct'] = $project['total_tasks'] > 0 ? round(($project['done_tasks'] / $project['total_tasks']) * 100) : 0;
+
+        // Unified list of all team members actively working on tasks in this project
+        // (Includes the owner, explicit members in tm_project_members, and anyone assigned a task)
+        $members_q = $this->db->query("
+            SELECT 
+                u.user_id, u.name, u.email, u.role as system_role,
+                IF(u.user_id = ?, 'manager', IFNULL(pm.project_role, 'member')) as project_role,
+                (SELECT COUNT(*) FROM tm_tasks WHERE project_id = ? AND assigned_to = u.user_id AND status_flag = 'Active') as total_tasks,
+                (SELECT COUNT(*) FROM tm_tasks WHERE project_id = ? AND assigned_to = u.user_id AND status_flag = 'Active' AND status IN ('done','closed')) as completed_tasks,
+                (SELECT SUM(tl.hours) FROM tm_time_logs tl JOIN tm_tasks t ON t.task_id = tl.task_id WHERE t.project_id = ? AND tl.user_id = u.user_id AND t.status_flag = 'Active' AND tl.status_flag = 'Active') as total_hours,
+                (
+                    SELECT GROUP_CONCAT(DISTINCT ur.name SEPARATOR ', ') 
+                    FROM tm_tasks t2 
+                    JOIN tm_users ur ON ur.user_id = t2.reporter_id 
+                    WHERE t2.project_id = ? AND t2.assigned_to = u.user_id AND t2.status_flag = 'Active'
+                ) as assigned_by_names
+            FROM tm_users u
+            LEFT JOIN tm_project_members pm ON pm.user_id = u.user_id AND pm.project_id = ?
+            WHERE u.user_id = ? 
+               OR pm.user_id IS NOT NULL 
+               OR u.user_id IN (SELECT assigned_to FROM tm_tasks WHERE project_id = ? AND status_flag = 'Active' AND assigned_to IS NOT NULL)
+        ", array(
+            $project['owner_id'], 
+            $project_id, 
+            $project_id, 
+            $project_id, 
+            $project_id, 
+            $project_id,
+            $project['owner_id'],
+            $project_id
+        ))->result_array();
+
+        foreach ($members_q as $m) {
+            $m['total_hours'] = $m['total_hours'] ? round((float)$m['total_hours'], 2) : 0.0;
+            $members[$m['user_id']] = $m;
+        }
+
+        echo json_encode(array(
+            'success' => true,
+            'project' => $project,
+            'members' => array_values($members)
+        ));
+    }
+
+    // -------------------------------------------------------------------------
+    // One-Time Safe Database Schema Migration
+    // -------------------------------------------------------------------------
+
+
+    public function run_migration()
+    {
+        // Enforce basic login protection
+        $this->_auth();
+
+        $role = $this->session->userdata(SESS_HEAD . '_role');
+        if ($role !== 'admin') {
+            show_error('Only administrators can run database migrations.', 403);
+        }
+
+        echo "<h2>Database Migration Status</h2>";
+
+        // 1. Check current definition of parent_task_id in tm_tasks
+        $query = $this->db->query("SHOW COLUMNS FROM tm_tasks LIKE 'parent_task_id'");
+        $column = $query->num_rows() > 0 ? $query->row_array() : null;
+
+        if ($column) {
+            echo "<p>[info] Column 'parent_task_id' already exists in 'tm_tasks' table.</p>";
+            
+            // Check if type is signed (contains 'unsigned' or not)
+            if (strpos(strtolower($column['Type']), 'unsigned') === false) {
+                echo "<p>[info] Type is SIGNED. Altering column to UNSIGNED to match task_id type exactly...</p>";
+                
+                // Drop foreign key if it exists
+                @$this->db->query("ALTER TABLE tm_tasks DROP FOREIGN KEY fk_tasks_parent");
+                
+                $alter = $this->db->query("ALTER TABLE tm_tasks MODIFY COLUMN parent_task_id INT UNSIGNED NULL DEFAULT NULL");
+                if ($alter) {
+                    echo "<p style='color:green;'>[success] Successfully altered column 'parent_task_id' to INT UNSIGNED!</p>";
+                } else {
+                    echo "<p style='color:red;'>[error] Error altering column: " . $this->db->error()['message'] . "</p>";
+                }
+            } else {
+                echo "<p style='color:green;'>[success] Column 'parent_task_id' is already UNSIGNED.</p>";
+            }
+        } else {
+            echo "<p>[info] Column 'parent_task_id' does not exist. Creating column as INT UNSIGNED...</p>";
+            $create = $this->db->query("ALTER TABLE tm_tasks ADD COLUMN parent_task_id INT UNSIGNED NULL DEFAULT NULL AFTER task_id");
+            if ($create) {
+                echo "<p style='color:green;'>[success] Successfully created column 'parent_task_id'!</p>";
+            } else {
+                echo "<p style='color:red;'>[error] Error creating column: " . $this->db->error()['message'] . "</p>";
+            }
+        }
+
+        // 2. Ensure index exists
+        $idx_query = $this->db->query("SHOW INDEX FROM tm_tasks WHERE Key_name = 'idx_parent_task'");
+        if ($idx_query->num_rows() > 0) {
+            echo "<p style='color:green;'>[success] Index 'idx_parent_task' already exists.</p>";
+        } else {
+            echo "<p>[info] Creating index 'idx_parent_task'...</p>";
+            $idx = $this->db->query("ALTER TABLE tm_tasks ADD INDEX idx_parent_task (parent_task_id)");
+            if ($idx) {
+                echo "<p style='color:green;'>[success] Successfully created index 'idx_parent_task'!</p>";
+            } else {
+                echo "<p style='color:red;'>[error] Error creating index: " . $this->db->error()['message'] . "</p>";
+            }
+        }
+
+        // 3. Ensure foreign key constraint exists
+        $db_name = $this->db->database;
+        $fk_query = $this->db->query("
+            SELECT CONSTRAINT_NAME 
+            FROM information_schema.REFERENTIAL_CONSTRAINTS 
+            WHERE CONSTRAINT_SCHEMA = ? 
+              AND TABLE_NAME = 'tm_tasks' 
+              AND CONSTRAINT_NAME = 'fk_tasks_parent'
+        ", array($db_name));
+
+        if ($fk_query->num_rows() > 0) {
+            echo "<p style='color:green;'>[success] Foreign key constraint 'fk_tasks_parent' already exists and is active!</p>";
+        } else {
+            echo "<p>[info] Establishing foreign key constraint 'fk_tasks_parent' pointing to 'tm_tasks(task_id)'...</p>";
+            try {
+                $fk = $this->db->query("
+                    ALTER TABLE tm_tasks
+                    ADD CONSTRAINT fk_tasks_parent
+                    FOREIGN KEY (parent_task_id) REFERENCES tm_tasks(task_id)
+                    ON DELETE SET NULL 
+                    ON UPDATE CASCADE
+                ");
+                if ($fk) {
+                    echo "<p style='color:green;'>[success] Successfully established foreign key constraint 'fk_tasks_parent'!</p>";
+                } else {
+                    echo "<p style='color:red;'>[error] Error establishing foreign key constraint: " . $this->db->error()['message'] . "</p>";
+                }
+            } catch (Exception $e) {
+                echo "<p style='color:red;'>[error] Exception establishing foreign key constraint: " . $e->getMessage() . "</p>";
+            }
+        }
+
+        echo "<p><a href='" . site_url('dash') . "'>&larr; Return to Dashboard</a></p>";
     }
 }

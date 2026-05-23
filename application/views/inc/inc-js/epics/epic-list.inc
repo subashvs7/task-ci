@@ -10,8 +10,8 @@ jQuery(function ($) {
         $('#edit_epic_status').val($b.data('status'));
         $('#edit_epic_priority').val($b.data('priority'));
         $('#edit_epic_color').val($b.data('color') || '#9b59b6');
-        $('#edit_epic_start').val($b.data('start'));
-        $('#edit_epic_end').val($b.data('end'));
+        $('#edit_epic_eh').val($b.data('eh'));
+        $('#edit_epic_em').val($b.data('em'));
         $('#edit_epic_project').val($b.data('project')).trigger('change');
         $('#editEpicModal').modal('show');
     });

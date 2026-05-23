@@ -5,6 +5,11 @@ class Story extends CI_Controller
     {
         if (!$this->session->userdata(SESS_HEAD . '_logged_in'))
             redirect('login');
+
+        if (!has_menu_permission('stories')) {
+            $this->session->set_flashdata('alert_error', 'You do not have permission to access User Stories.');
+            redirect_to_fallback();
+        }
     }
 
     public function story_list()
@@ -18,6 +23,22 @@ class Story extends CI_Controller
         $uid = $this->session->userdata(SESS_HEAD . '_user_id');
 
         if ($this->input->post('mode') == 'Add') {
+            $user_role = $this->session->userdata(SESS_HEAD . '_role');
+            if (!in_array($user_role, ['admin', 'manager', 'team_leader', 'staff'])) {
+                $this->session->set_flashdata('alert_error', 'You cannot create stories.');
+                redirect($data['s_url']);
+            }
+            $assignee_id = NULL;
+            $epic_id = $this->input->post('epic_id') ?: NULL;
+            if ($epic_id) {
+                $epic = $this->db->query("SELECT created_by FROM tm_epics WHERE epic_id = ?", [$epic_id])->row_array();
+                if ($epic && $epic['created_by']) {
+                    $assignee_id = $epic['created_by'];
+                }
+            } else if ($user_role === 'staff') {
+                $assignee_id = $uid;
+            }
+
             $ins = array(
                 'project_id'   => $this->input->post('project_id'),
                 'epic_id'      => $this->input->post('epic_id') ?: NULL,
@@ -25,10 +46,8 @@ class Story extends CI_Controller
                 'description'  => $this->input->post('description'),
                 'status'       => $this->input->post('status') ?: 'backlog',
                 'priority'     => $this->input->post('priority') ?: 'medium',
-                'story_points' => (int)$this->input->post('story_points'),
-                'assignee_id'  => $this->input->post('assignee_id') ?: NULL,
+                'assignee_id'  => $assignee_id,
                 'reporter_id'  => $uid,
-                'sprint'       => $this->input->post('sprint'),
                 'status_flag'  => 'Active',
                 'created_by'   => $uid,
                 'created_date' => date('Y-m-d H:i:s'),
@@ -41,6 +60,18 @@ class Story extends CI_Controller
         }
 
         if ($this->input->post('mode') == 'Edit') {
+            $user_role = $this->session->userdata(SESS_HEAD . '_role');
+            $assignee_id = NULL;
+            $epic_id = $this->input->post('epic_id') ?: NULL;
+            if ($epic_id) {
+                $epic = $this->db->query("SELECT created_by FROM tm_epics WHERE epic_id = ?", [$epic_id])->row_array();
+                if ($epic && $epic['created_by']) {
+                    $assignee_id = $epic['created_by'];
+                }
+            } else if ($user_role === 'staff') {
+                $assignee_id = $uid;
+            }
+
             $upd = array(
                 'project_id'   => $this->input->post('project_id'),
                 'epic_id'      => $this->input->post('epic_id') ?: NULL,
@@ -48,9 +79,7 @@ class Story extends CI_Controller
                 'description'  => $this->input->post('description'),
                 'status'       => $this->input->post('status'),
                 'priority'     => $this->input->post('priority'),
-                'story_points' => (int)$this->input->post('story_points'),
-                'assignee_id'  => $this->input->post('assignee_id') ?: NULL,
-                'sprint'       => $this->input->post('sprint'),
+                'assignee_id'  => $assignee_id,
                 'updated_by'   => $uid,
                 'updated_date' => date('Y-m-d H:i:s'),
             );
@@ -66,6 +95,16 @@ class Story extends CI_Controller
 
         $this->load->library('pagination');
         $where = "s.status_flag='Active'";
+        
+        $role = $this->session->userdata(SESS_HEAD . '_role');
+        $uid = $this->session->userdata(SESS_HEAD . '_user_id');
+
+        if ($role === 'staff') {
+            $where .= " AND (s.assignee_id = {$uid} OR s.story_id IN (SELECT story_id FROM tm_tasks WHERE assigned_to = {$uid} AND status_flag='Active'))";
+        } elseif ($role === 'team_leader') {
+            $where .= " AND (s.project_id IN (SELECT project_id FROM tm_project_handlers WHERE team_leader_id = {$uid} AND status='active') OR s.assignee_id = {$uid} OR s.story_id IN (SELECT story_id FROM tm_tasks WHERE assigned_to = {$uid} AND status_flag='Active'))";
+        }
+
         if ($f_project) $where .= " AND s.project_id=" . (int)$f_project;
         if ($f_epic)    $where .= " AND s.epic_id=" . (int)$f_epic;
         if ($f_status)  $where .= " AND s.status='" . $this->db->escape_str($f_status) . "'";
@@ -77,8 +116,37 @@ class Story extends CI_Controller
         $config = $this->_pagination_config($data['s_url'], $data['total_records'], 30);
         $this->pagination->initialize($config);
 
-        $sql = "SELECT s.*, p.name as project_name, e.name as epic_name, u.name as assignee_name,
-                    (SELECT COUNT(*) FROM tm_tasks WHERE story_id=s.story_id AND status_flag='Active') as task_count
+        if ($this->input->post('mode') == 'AddSubTask') {
+            $est_h = (float)$this->input->post('estimate_hours');
+            $est_m = (float)$this->input->post('estimate_minutes');
+            $estimated_hours = ($est_h > 0 || $est_m > 0) ? round($est_h + ($est_m / 60), 2) : NULL;
+
+            $ins = array(
+                'project_id'     => $this->input->post('project_id') ?: NULL,
+                'epic_id'        => $this->input->post('epic_id') ?: NULL,
+                'story_id'       => $this->input->post('story_id') ?: NULL,
+                'title'          => $this->input->post('title'),
+                'status'         => 'todo',
+                'priority'       => 'medium',
+                'type'           => 'task',
+                'due_date'       => $this->input->post('due_date') ?: NULL,
+                'assigned_to'    => $uid, // Auto-assign to staff creating it
+                'reporter_id'    => $uid,
+                'estimated_hours'=> $estimated_hours,
+                'status_flag'    => 'Active',
+                'created_by'     => $uid,
+                'created_date'   => date('Y-m-d H:i:s'),
+                'updated_by'     => $uid,
+                'updated_date'   => date('Y-m-d H:i:s'),
+            );
+            $this->db->insert('tm_tasks', $ins);
+            $this->session->set_flashdata('alert_success', 'Task created successfully.');
+            redirect($data['s_url']);
+        }
+
+        $sql = "SELECT s.*, p.name as project_name, e.name as epic_name, e.estimated_time as epic_estimated_time, u.name as assignee_name,
+                    (SELECT COUNT(*) FROM tm_tasks WHERE story_id=s.story_id AND status_flag='Active') as task_count,
+                    COALESCE((SELECT SUM(estimated_hours) FROM tm_tasks WHERE story_id=s.story_id AND status_flag='Active'), 0) as calculated_time_hours
                 FROM tm_user_stories s
                 LEFT JOIN tm_projects p ON p.project_id = s.project_id
                 LEFT JOIN tm_epics e ON e.epic_id = s.epic_id
@@ -87,9 +155,34 @@ class Story extends CI_Controller
                 ORDER BY s.created_date DESC
                 LIMIT {$offset}, 30";
         $data['record_list']   = $this->db->query($sql)->result_array();
+
+        // Fetch sub-tasks for these stories
+        $story_ids = array_column($data['record_list'], 'story_id');
+        $tasks_by_story = [];
+        if (!empty($story_ids)) {
+            $task_where = "t.story_id IN (" . implode(',', $story_ids) . ") AND t.status_flag='Active'";
+            if ($role === 'staff') {
+                $task_where .= " AND t.assigned_to = {$uid}";
+            }
+            
+            $task_sql = "SELECT t.*, u.name as active_worker_name,
+                            (SELECT started_at FROM tm_task_sessions WHERE task_id=t.task_id AND ended_at IS NULL AND status_flag='Active' LIMIT 1) as open_session_start,
+                            COALESCE((SELECT SUM(hours) FROM tm_time_logs WHERE task_id=t.task_id AND status_flag='Active'), 0) as logged_hours
+                         FROM tm_tasks t 
+                         LEFT JOIN tm_users u ON u.user_id = t.active_session_user 
+                         WHERE {$task_where}
+                         ORDER BY t.work_session_status DESC, t.created_date ASC";
+            $tasks = $this->db->query($task_sql)->result_array();
+            foreach ($tasks as $t) {
+                $tasks_by_story[$t['story_id']][] = $t;
+            }
+        }
+        foreach ($data['record_list'] as &$st) {
+            $st['tasks_list'] = isset($tasks_by_story[$st['story_id']]) ? $tasks_by_story[$st['story_id']] : [];
+        }
         $data['pagination']    = $this->pagination->create_links();
         $data['projects_list'] = $this->db->query("SELECT project_id, name FROM tm_projects WHERE status_flag='Active' ORDER BY name")->result_array();
-        $data['epics_list']    = $this->db->query("SELECT epic_id, name, project_id FROM tm_epics WHERE status_flag='Active' ORDER BY name")->result_array();
+        $data['epics_list']    = $this->db->query("SELECT e.epic_id, e.name, e.project_id, e.created_by, u.name as creator_name FROM tm_epics e LEFT JOIN tm_users u ON u.user_id = e.created_by WHERE e.status_flag='Active' ORDER BY e.name")->result_array();
         $data['users_list']    = $this->db->query("SELECT user_id, name FROM tm_users WHERE status='Active' ORDER BY name")->result_array();
         $data['f_project']     = $f_project;
         $data['f_epic']        = $f_epic;
@@ -103,6 +196,7 @@ class Story extends CI_Controller
         return array(
             'base_url'         => site_url($url), 'total_rows'       => $total,
             'per_page'         => $per_page,      'uri_segment'      => 2,
+            'reuse_query_string' => TRUE,
             'attributes'       => array('class' => 'page-link'),
             'full_tag_open'    => '<ul class="pagination pagination-sm no-margin pull-right">',
             'full_tag_close'   => '</ul>',

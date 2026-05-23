@@ -22,6 +22,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
   <link rel="stylesheet" href="<?php echo base_url() ?>asset/bower_components/bootstrap-datepicker/dist/css/bootstrap-datepicker.min.css">
   <link rel="stylesheet" href="<?php echo base_url() ?>asset/bower_components/bootstrap-daterangepicker/daterangepicker.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css">
+  <link rel="stylesheet" href="<?php echo base_url() ?>asset/dist/css/hierarchy.css">
 
   <!-- Google Font -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600,700">
@@ -70,6 +71,19 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     .badge-type-research     { background-color: #34495e; }
     .badge-type-design       { background-color: #e91e63; }
     .badge-type-documentation{ background-color: #607d8b; }
+    /* Project status label colors */
+    .label-planning   { background-color: #9b59b6 !important; }
+    .label-active     { background-color: #27ae60 !important; }
+    .label-on-hold    { background-color: #e67e22 !important; }
+    .label-completed  { background-color: #3498db !important; }
+    .label-cancelled  { background-color: #c0392b !important; }
+    .label-purple     { background-color: #9b59b6 !important; }
+    .label-orange     { background-color: #e67e22 !important; }
+    /* Deadline badge */
+    .deadline-badge { display:inline-block; padding:2px 7px; border-radius:10px; font-size:11px; font-weight:600; }
+    .deadline-ok    { background:#d5f5e3; color:#1a8a4a; }
+    .deadline-warn  { background:#fdebd0; color:#d35400; }
+    .deadline-over  { background:#fadbd8; color:#c0392b; }
     .kanban-board { display: flex; gap: 15px; overflow-x: auto; padding-bottom: 15px; }
     .kanban-col { min-width: 260px; max-width: 300px; flex-shrink: 0; }
     .kanban-col-header { padding: 10px 12px; border-radius: 4px 4px 0 0; color: #fff; font-weight: bold; font-size: 13px; }
@@ -90,6 +104,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
       .navbar-center { font-size: 14px; }
     }
   </style>
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body class="hold-transition skin-blue sidebar-mini">
 <div class="wrapper">

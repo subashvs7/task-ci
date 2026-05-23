@@ -179,5 +179,41 @@ jQuery(function ($) {
             }
         });
     });
+    // ── Add Dependency ──────────────────────────────────────────
+    $('#addDependencyForm').on('submit', function (e) {
+        e.preventDefault();
+        $.ajax({
+            url: baseUrl + 'add-dependency',
+            type: 'post',
+            dataType: 'json',
+            data: {
+                task_id: <?php echo $task['task_id']; ?>,
+                depends_on_task_id: $('#depends_on_task_id').val()
+            },
+            success: function (res) {
+                if (res.success) {
+                    $('#addDependencyModal').modal('hide');
+                    location.reload();
+                } else {
+                    alert(res.message);
+                }
+            }
+        });
+    });
+
+    // ── Delete Dependency ──────────────────────────────────────────
+    $(document).on('click', '.del_dependency', function () {
+        if (!confirm('Remove this dependency?')) return;
+        $.ajax({
+            url: baseUrl + 'delete-dependency',
+            type: 'post',
+            dataType: 'json',
+            data: { dependency_id: $(this).data('id') },
+            success: function (res) {
+                if (res.success) location.reload();
+                else alert(res.message);
+            }
+        });
+    });
 });
 </script>

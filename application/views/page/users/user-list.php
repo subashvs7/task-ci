@@ -12,8 +12,8 @@
   .user-avatar { width:36px; height:36px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; color:#fff; vertical-align:middle; }
   .ua-admin   { background:#c0392b; }
   .ua-manager { background:#e67e22; }
-  .ua-member  { background:#2980b9; }
-  .ua-viewer  { background:#7f8c8d; }
+  .ua-team_leader { background:#2980b9; }
+  .ua-staff   { background:#7f8c8d; }
   .ua-default { background:#95a5a6; }
   .task-badge { font-size:10px; border-radius:10px; padding:2px 7px; }
 </style>
@@ -41,7 +41,11 @@
           <div class="col-md-3"><div class="form-group"><label>Role</label>
             <select name="f_role" class="form-control">
               <option value="">All Roles</option>
-              <?php foreach (USER_ROLE_OPT as $k => $v): ?>
+              <?php 
+              $curr_role = $this->session->userdata(SESS_HEAD . '_role');
+              $filter_roles = ($curr_role === 'admin') ? USER_ROLE_OPT : get_assignable_roles();
+              foreach ($filter_roles as $k => $v): 
+              ?>
               <option value="<?php echo $k; ?>" <?php echo ($f_role==$k)?'selected':''; ?>><?php echo $v; ?></option>
               <?php endforeach; ?>
             </select>
@@ -82,7 +86,6 @@
             <th style="width:40px;">#</th>
             <th>User</th>
             <th>Role</th>
-            <th>Tasks</th>
             <th>Status</th>
             <th>Joined</th>
             <th style="width:100px;">Actions</th>
@@ -90,7 +93,7 @@
         </thead>
         <tbody>
           <?php if (empty($record_list)): ?>
-          <tr><td colspan="7" class="text-center text-muted" style="padding:30px;">No users found.</td></tr>
+          <tr><td colspan="6" class="text-center text-muted" style="padding:30px;">No users found.</td></tr>
           <?php else: ?>
           <?php foreach ($record_list as $j => $u):
             $initials = strtoupper(implode('', array_map(function($w){ return $w[0]; }, array_slice(explode(' ', $u['name']), 0, 2))));
@@ -111,21 +114,12 @@
               </div>
             </td>
             <td>
-              <?php $rc = array('admin'=>'danger','manager'=>'warning','member'=>'info','viewer'=>'default'); $rl = USER_ROLE_OPT; ?>
+              <?php $rc = array('admin'=>'danger','manager'=>'warning','team_leader'=>'info','staff'=>'default'); $rl = USER_ROLE_OPT; ?>
               <span class="label label-<?php echo isset($rc[$u['role']])?$rc[$u['role']]:'default'; ?>">
                 <?php echo isset($rl[$u['role']]) ? $rl[$u['role']] : $u['role']; ?>
               </span>
             </td>
-            <td>
-              <?php if ($u['task_count'] > 0): ?>
-                <span class="badge task-badge" style="background:#3498db;" title="Total assigned tasks"><?php echo $u['task_count']; ?> assigned</span>
-                <?php if ($u['active_task_count'] > 0): ?>
-                  <span class="badge task-badge" style="background:#e67e22; margin-left:3px;" title="In Progress"><?php echo $u['active_task_count']; ?> active</span>
-                <?php endif; ?>
-              <?php else: ?>
-                <span class="text-muted" style="font-size:12px;">No tasks</span>
-              <?php endif; ?>
-            </td>
+
             <td>
               <span class="label label-<?php echo ($u['status']=='Active')?'success':'danger'; ?>">
                 <i class="fa fa-<?php echo ($u['status']=='Active')?'check':'ban'; ?>"></i> <?php echo $u['status']; ?>
@@ -192,19 +186,15 @@
           </div>
           <div class="form-group"><label>Role</label>
             <select name="role" class="form-control">
-              <?php foreach (USER_ROLE_OPT as $k => $v): ?>
-              <option value="<?php echo $k; ?>" <?php echo ($k==='member')?'selected':''; ?>><?php echo $v; ?></option>
+              <?php 
+              $curr_role_add = $this->session->userdata(SESS_HEAD . '_role');
+              $add_roles = ($curr_role_add === 'admin') ? USER_ROLE_OPT : get_assignable_roles();
+              foreach ($add_roles as $k => $v): ?>
+              <option value="<?php echo $k; ?>"><?php echo $v; ?></option>
               <?php endforeach; ?>
             </select>
           </div>
-          <div class="form-group"><label>Assign to Project <small class="text-muted">(optional)</small></label>
-            <select name="assign_project_id" class="form-control">
-              <option value="">-- No project --</option>
-              <?php foreach ($projects_list as $p): ?>
-              <option value="<?php echo $p['project_id']; ?>"><?php echo htmlspecialchars($p['name']); ?></option>
-              <?php endforeach; ?>
-            </select>
-          </div>
+
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
@@ -244,7 +234,10 @@
           </div>
           <div class="form-group"><label>Role</label>
             <select name="role" id="edit_user_role" class="form-control select2">
-              <?php foreach (USER_ROLE_OPT as $k => $v): ?>
+              <?php 
+              $curr_role_edit = $this->session->userdata(SESS_HEAD . '_role');
+              $edit_roles = ($curr_role_edit === 'admin') ? USER_ROLE_OPT : get_assignable_roles();
+              foreach ($edit_roles as $k => $v): ?>
               <option value="<?php echo $k; ?>"><?php echo $v; ?></option>
               <?php endforeach; ?>
             </select>

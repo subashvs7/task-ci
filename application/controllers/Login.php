@@ -24,6 +24,13 @@ class Login extends CI_Controller
                         SESS_HEAD . '_user_email' => $user['email'],
                         SESS_HEAD . '_role'       => $user['role'],
                     ));
+                    // Check if this user needs a login notification popup
+                    if (!empty($user['notify_login'])) {
+                        $this->session->set_flashdata('notify_login_popup', $user['name']);
+                        // Clear the flag immediately
+                        $this->db->where('user_id', $user['user_id']);
+                        $this->db->update('tm_users', array('notify_login' => 0));
+                    }
                     redirect('dash');
                 } else {
                     $this->session->set_flashdata('alert_error', 'Invalid password.');

@@ -1,4 +1,14 @@
-<?php include_once(VIEWPATH . 'inc/header.php'); ?>
+<?php include_once(VIEWPATH . 'inc/header.php'); 
+function format_hours($decimal_hours) {
+    if (!$decimal_hours || $decimal_hours <= 0) return '-';
+    $h = floor($decimal_hours);
+    $m = round(($decimal_hours - $h) * 60);
+    $parts = [];
+    if ($h > 0) $parts[] = $h.'h';
+    if ($m > 0) $parts[] = $m.'m';
+    return empty($parts) ? '0m' : implode(' ', $parts);
+}
+?>
 
 <section class="content-header">
   <h1>Epics <small><?php echo $total_records; ?> total</small></h1>
@@ -61,7 +71,7 @@
     <div class="box-body table-responsive no-padding">
       <table class="table table-hover table-bordered">
         <thead>
-          <tr><th>#</th><th>Epic Name</th><th>Project</th><th>Status</th><th>Priority</th><th>Stories</th><th>Dates</th><th>Actions</th></tr>
+          <tr><th>#</th><th>Epic Name</th><th>Project</th><th>Status</th><th>Priority</th><th>Est. Time</th><th>Stories</th><th>Actions</th></tr>
         </thead>
         <tbody>
           <?php if (empty($record_list)): ?>
@@ -75,17 +85,23 @@
               <strong><?php echo htmlspecialchars($e['name']); ?></strong>
               <?php if ($e['description']): ?><br><small class="text-muted"><?php echo htmlspecialchars(mb_substr($e['description'],0,50)); ?></small><?php endif; ?>
             </td>
-            <td><?php echo htmlspecialchars($e['project_name'] ?: '-'); ?></td>
             <td>
-              <?php $sc=array('open'=>'default','in_progress'=>'warning','done'=>'success','closed'=>'danger'); ?>
-              <span class="label label-<?php echo isset($sc[$e['status']])?$sc[$e['status']]:'default'; ?>"><?php echo ucfirst(str_replace('_',' ',$e['status'])); ?></span>
+              <?php if ($e['project_id']): ?>
+                <a href="#" class="project-link-modal" data-id="<?php echo $e['project_id']; ?>"><?php echo htmlspecialchars($e['project_name']); ?></a>
+                <button class="btn btn-xs btn-default btn-view-project-modal" data-id="<?php echo $e['project_id']; ?>" style="padding: 1px 3px; border-radius: 3px; font-size: 9px;" title="Quick View Team & Effort"><i class="fa fa-eye"></i></button>
+              <?php else: ?>
+                -
+              <?php endif; ?>
+            </td>
+            <td>
+              <?php $sc=array('open'=>'default','in_progress'=>'success','done'=>'success','closed'=>'danger'); ?>
+              <span class="label label-<?php echo isset($sc[$e['status']])?$sc[$e['status']]:'default'; ?>" style="<?php echo $e['status']=='in_progress' ? 'background-color:#10b981 !important;' : ''; ?>">
+                <?php echo $e['status'] === 'in_progress' ? 'Working' : ucfirst(str_replace('_',' ',$e['status'])); ?>
+              </span>
             </td>
             <td><span class="badge badge-priority-<?php echo $e['priority']; ?>"><?php $pl=TASK_PRIORITY_OPT; echo isset($pl[$e['priority']])?$pl[$e['priority']]:$e['priority']; ?></span></td>
+            <td><span class="badge bg-purple"><?php echo format_hours($e['estimated_time'] ? ($e['estimated_time']/60) : 0); ?></span></td>
             <td><?php echo $e['story_count']; ?> stories</td>
-            <td style="font-size:11px;">
-              <?php echo $e['start_date'] ? date('d-M-Y', strtotime($e['start_date'])) : '-'; ?>
-              <?php if ($e['end_date']): ?><br>→ <?php echo date('d-M-Y', strtotime($e['end_date'])); ?><?php endif; ?>
-            </td>
             <td>
               <button class="btn btn-xs btn-warning btn-edit-epic"
                 data-id="<?php echo $e['epic_id']; ?>"
@@ -95,8 +111,8 @@
                 data-status="<?php echo $e['status']; ?>"
                 data-priority="<?php echo $e['priority']; ?>"
                 data-color="<?php echo htmlspecialchars($e['color'], ENT_QUOTES); ?>"
-                data-start="<?php echo $e['start_date']; ?>"
-                data-end="<?php echo $e['end_date']; ?>">
+                data-eh="<?php echo $e['estimated_time'] ? floor($e['estimated_time'] / 60) : 0; ?>"
+                data-em="<?php echo $e['estimated_time'] ? ($e['estimated_time'] % 60) : 0; ?>">
                 <i class="fa fa-pencil"></i>
               </button>
               <button class="btn btn-xs btn-danger del_record" value="<?php echo $e['epic_id']; ?>" data-tbl="tm_epics" data-col="epic_id"><i class="fa fa-trash"></i></button>
@@ -140,7 +156,7 @@
             <div class="col-md-4">
               <div class="form-group"><label>Status</label>
                 <select name="status" class="form-control">
-                  <?php foreach (array('open'=>'Open','in_progress'=>'In Progress','done'=>'Done','closed'=>'Closed') as $k=>$v): ?>
+                  <?php foreach (array('open'=>'Open','in_progress'=>'Working','done'=>'Done','closed'=>'Closed') as $k=>$v): ?>
                   <option value="<?php echo $k; ?>"><?php echo $v; ?></option>
                   <?php endforeach; ?>
                 </select>
@@ -162,8 +178,16 @@
             </div>
           </div>
           <div class="row">
-            <div class="col-md-6"><div class="form-group"><label>Start Date</label><input type="date" name="start_date" class="form-control"></div></div>
-            <div class="col-md-6"><div class="form-group"><label>End Date</label><input type="date" name="end_date" class="form-control"></div></div>
+            <div class="col-md-6">
+              <div class="form-group"><label>Estimate (Hrs) <span class="text-danger">*</span></label>
+                <input type="number" name="est_hours" class="form-control" min="0" required placeholder="Hours">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group"><label>Estimate (Min) <span class="text-danger">*</span></label>
+                <input type="number" name="est_minutes" class="form-control" min="0" max="59" required placeholder="Minutes" value="0">
+              </div>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -220,8 +244,16 @@
             </div></div>
           </div>
           <div class="row">
-            <div class="col-md-6"><div class="form-group"><label>Start Date</label><input type="date" name="start_date" id="edit_epic_start" class="form-control"></div></div>
-            <div class="col-md-6"><div class="form-group"><label>End Date</label><input type="date" name="end_date" id="edit_epic_end" class="form-control"></div></div>
+            <div class="col-md-6">
+              <div class="form-group"><label>Estimate (Hrs) <span class="text-danger">*</span></label>
+                <input type="number" name="est_hours" id="edit_epic_eh" class="form-control" min="0" required>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group"><label>Estimate (Min) <span class="text-danger">*</span></label>
+                <input type="number" name="est_minutes" id="edit_epic_em" class="form-control" min="0" max="59" required>
+              </div>
+            </div>
           </div>
         </div>
         <div class="modal-footer">

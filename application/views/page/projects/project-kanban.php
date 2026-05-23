@@ -38,7 +38,7 @@
           $pdone = (int)$p['done_count'];
           $ppct  = $ptask > 0 ? round(($pdone/$ptask)*100) : 0;
         ?>
-        <div class="kanban-card" onclick="window.location='<?php echo site_url('project-detail/' . $p['project_id']); ?>'">
+        <div class="kanban-card project-link-modal" data-id="<?php echo $p['project_id']; ?>" style="cursor:pointer;">
           <div style="border-left:4px solid <?php echo htmlspecialchars($p['color'] ?: $ccol); ?>; padding-left:8px;">
             <div class="kanban-card-title"><?php echo htmlspecialchars($p['name']); ?></div>
             <?php if ($p['key_name']): ?><div class="kanban-card-meta"><code><?php echo htmlspecialchars($p['key_name']); ?></code></div><?php endif; ?>

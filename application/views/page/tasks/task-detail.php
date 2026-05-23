@@ -1,4 +1,14 @@
-<?php include_once(VIEWPATH . 'inc/header.php'); ?>
+<?php include_once(VIEWPATH . 'inc/header.php'); 
+function format_hours($decimal_hours) {
+    if (!$decimal_hours || $decimal_hours <= 0) return '-';
+    $h = floor($decimal_hours);
+    $m = round(($decimal_hours - $h) * 60);
+    $parts = [];
+    if ($h > 0) $parts[] = $h.'h';
+    if ($m > 0) $parts[] = $m.'m';
+    return empty($parts) ? '0m' : implode(' ', $parts);
+}
+?>
 
 <section class="content-header">
   <h1><?php echo htmlspecialchars(mb_substr($task['title'], 0, 60)); ?><?php echo strlen($task['title'])>60?'...':''; ?></h1>
@@ -33,13 +43,22 @@
         <div class="box-body">
           <!-- Status row -->
           <div class="row" style="margin-bottom:15px;">
-            <div class="col-md-3 text-center">
+            <div class="col-md-2 text-center">
               <div style="font-size:11px; color:#888; text-transform:uppercase; margin-bottom:4px;">Status</div>
               <span class="badge badge-status-<?php echo $task['status']; ?>" style="font-size:13px; padding:6px 12px;"><?php $sl=TASK_STATUS_OPT; echo isset($sl[$task['status']])?$sl[$task['status']]:$task['status']; ?></span>
             </div>
-            <div class="col-md-3 text-center">
+            <div class="col-md-2 text-center">
               <div style="font-size:11px; color:#888; text-transform:uppercase; margin-bottom:4px;">Priority</div>
               <span class="badge badge-priority-<?php echo $task['priority']; ?>" style="font-size:13px; padding:6px 12px;"><?php $pl=TASK_PRIORITY_OPT; echo isset($pl[$task['priority']])?$pl[$task['priority']]:$task['priority']; ?></span>
+            </div>
+            <div class="col-md-2 text-center">
+              <div style="font-size:11px; color:#888; text-transform:uppercase; margin-bottom:4px;">Project</div>
+              <?php if ($task['project_id']): ?>
+                <a href="#" class="project-link-modal" data-id="<?php echo $task['project_id']; ?>" style="font-weight:600; font-size:12px; display:block; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;" title="<?php echo htmlspecialchars($task['project_name']); ?>"><?php echo htmlspecialchars($task['project_name']); ?></a>
+                <button class="btn btn-xs btn-default btn-view-project-modal" data-id="<?php echo $task['project_id']; ?>" style="padding: 1px 3px; border-radius: 3px; font-size: 9px; margin-top:2px;" title="Quick View Team & Effort"><i class="fa fa-eye"></i></button>
+              <?php else: ?>
+                -
+              <?php endif; ?>
             </div>
             <div class="col-md-3 text-center">
               <div style="font-size:11px; color:#888; text-transform:uppercase; margin-bottom:4px;">Progress</div>
@@ -47,12 +66,83 @@
               <small><?php echo $task['completion_percentage']; ?>%</small>
             </div>
             <div class="col-md-3 text-center">
-              <div style="font-size:11px; color:#888; text-transform:uppercase; margin-bottom:4px;">Project</div>
-              <a href="<?php echo site_url('project-detail/' . $task['project_id']) ?>" style="font-weight:600;"><?php echo htmlspecialchars($task['project_name'] ?: '-'); ?></a>
-              <?php if ($task['project_key']): ?><br><code style="font-size:10px;"><?php echo htmlspecialchars($task['project_key']); ?></code><?php endif; ?>
+              <div style="font-size:11px; color:#888; text-transform:uppercase; margin-bottom:4px;">Work Session</div>
+              <?php 
+                $cur_uid  = (int)$this->session->userdata(SESS_HEAD . '_user_id');
+                $cur_role = $this->session->userdata(SESS_HEAD . '_role');
+                $is_active_session = ($task['work_session_status'] === 'active');
+                $is_my_session     = $is_active_session && ((int)$task['active_session_user'] === $cur_uid);
+                $is_done_closed    = in_array($task['status'], array('done','closed'));
+                $can_toggle        = in_array($cur_role, array('staff','admin')) && !$is_done_closed;
+                $is_mine_task      = ((int)$task['assigned_to'] === $cur_uid);
+              ?>
+              <?php if ($is_done_closed): ?>
+                <span class="label label-success"><i class="fa fa-check-circle"></i> Completed</span>
+              <?php elseif ($is_my_session): ?>
+                <button class="btn btn-sm btn-danger btn-task-session" data-task="<?php echo $task['task_id']; ?>" data-action="stop" style="font-weight:600;"><i class="fa fa-stop-circle"></i> Stop Work</button><br>
+                <span class="session-timer text-success" data-start-ts="<?php echo strtotime($task['open_session_start']); ?>" data-start="<?php echo htmlspecialchars($task['open_session_start']); ?>" style="font-size:12px; font-weight:700; font-family:monospace; display:inline-block; margin-top:4px;">00:00:00</span>
+              <?php elseif ($is_active_session): ?>
+                <span style="color:#e67e22; font-weight:600;"><i class="fa fa-circle"></i> Working</span>
+              <?php elseif ($can_toggle && $is_mine_task): ?>
+                <button class="btn btn-sm btn-success btn-task-session" data-task="<?php echo $task['task_id']; ?>" data-action="start" style="font-weight:600;"><i class="fa fa-play-circle"></i> Start Work</button>
+              <?php else: ?>
+                <span class="text-muted" style="font-size:12px;"><i class="fa fa-clock-o"></i> Inactive</span>
+              <?php endif; ?>
             </div>
           </div>
-          <hr>
+          <hr style="margin-top: 5px; margin-bottom: 15px;">
+          
+          <!-- TIME TRACKING & EFFORT -->
+          <?php 
+            $logged_h    = (float)$task['total_logged_hours'];
+            $estimated_h = (float)$task['estimated_hours'];
+            $remaining_h = max(0, $estimated_h - $logged_h);
+            $is_overdue  = ($estimated_h > 0 && $logged_h > $estimated_h);
+            
+            $time_progress = 0;
+            if ($estimated_h > 0) {
+                $time_progress = min(100, round(($logged_h / $estimated_h) * 100));
+            } elseif ($is_done_closed) {
+                $time_progress = 100;
+            }
+          ?>
+          <div class="row" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 0 0 15px 0;">
+              <div class="col-md-4 text-center" style="border-right: 1px solid #ddd;">
+                  <h5 style="margin-top: 0; font-size: 11px; color: #7f8c8d; text-transform: uppercase;">Estimated Time (Budget)</h5>
+                  <div style="font-size: 18px; font-weight: 700; color: #34495e;">
+                      <?php echo $estimated_h > 0 ? format_hours($estimated_h) : '--'; ?>
+                  </div>
+              </div>
+              <div class="col-md-4 text-center" style="border-right: 1px solid #ddd;">
+                  <h5 style="margin-top: 0; font-size: 11px; color: #7f8c8d; text-transform: uppercase;">Logged Time</h5>
+                  <div style="font-size: 18px; font-weight: 700; color: #2980b9;">
+                      <?php echo format_hours($logged_h); ?>
+                  </div>
+              </div>
+              <div class="col-md-4 text-center">
+                  <h5 style="margin-top: 0; font-size: 11px; color: #7f8c8d; text-transform: uppercase;">Time Remaining</h5>
+                  <?php if ($estimated_h > 0): ?>
+                      <div style="font-size: 18px; font-weight: 700; color: <?php echo $is_overdue ? '#e74c3c' : '#27ae60'; ?>;">
+                          <?php if ($is_overdue): ?>
+                              <i class="fa fa-exclamation-triangle"></i> <?php echo format_hours($logged_h - $estimated_h); ?> <small>Over</small>
+                          <?php else: ?>
+                              <?php echo format_hours($remaining_h); ?>
+                          <?php endif; ?>
+                      </div>
+                  <?php else: ?>
+                      <div style="font-size: 18px; font-weight: 700; color: #bdc3c7;">--</div>
+                  <?php endif; ?>
+              </div>
+              
+              <div class="col-md-12" style="margin-top: 15px;">
+                  <div style="font-size:10px; color:#888; text-transform:uppercase; margin-bottom:4px; text-align: center;">Time Progression vs Estimate</div>
+                  <div class="progress-bar-container" style="height: 8px; background: #eee; border-radius: 4px; overflow: hidden;">
+                      <div class="progress-bar-fill" style="height: 100%; width:<?php echo $time_progress; ?>%; background:<?php echo $time_progress==100 && !$is_overdue?'#27ae60':($is_overdue?'#e74c3c':'#3498db'); ?>; transition: width 0.5s ease;"></div>
+                  </div>
+              </div>
+          </div>
+          
+          <hr style="margin-top: 15px; margin-bottom: 15px;">
           <!-- Description -->
           <?php if ($task['description']): ?>
           <div class="task-detail-section">
@@ -69,7 +159,68 @@
           </div>
           <?php endif; ?>
         </div>
+      </div>      <?php if (empty($task['parent_task_id'])): ?>
+      <div class="box box-primary box-solid" style="border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: none; margin-bottom: 20px;">
+          <div class="box-header with-border" style="background: #2c3e50;">
+              <h3 class="box-title" style="font-weight: 600;"><i class="fa fa-sitemap"></i> Task Delegation Waterfall</h3>
+          </div>
+          <div class="box-body" style="background: #f8f9fa; padding: 25px;">
+              <div class="hierarchy-container">
+                  <!-- Parent Core Task Card -->
+                  <div class="hierarchy-parent-card">
+                      <span class="label label-primary" style="text-transform: uppercase; font-size: 9px; letter-spacing: 0.5px;">Parent Core Task</span>
+                      <h4 style="margin: 8px 0 5px; color: #2c3e50; font-weight: 700;"><?= htmlspecialchars($task['title']) ?></h4>
+                      <p style="margin: 0; font-size: 13px; color: #7f8c8d;">Owner (Lead): <strong><?= htmlspecialchars($task['assignee_name'] ?: 'Unassigned') ?></strong></p>
+                  </div>
+                  
+                  <div class="hierarchy-connector"><i class="fa fa-chevron-down text-muted"></i></div>
+                  
+                  <!-- Children Grid -->
+                  <div class="hierarchy-children-grid">
+                      <?php 
+                      $children = $this->db->query("
+                          SELECT t.*, u.name as assignee_name,
+                                 COALESCE((SELECT SUM(tl.hours) FROM tm_time_logs tl WHERE tl.task_id=t.task_id AND tl.status_flag='Active'), 0) as logged_hours,
+                                 (SELECT started_at FROM tm_task_sessions WHERE task_id=t.task_id AND ended_at IS NULL AND status_flag='Active' LIMIT 1) as open_session_start
+                          FROM tm_tasks t 
+                          LEFT JOIN tm_users u ON u.user_id = t.assigned_to 
+                          WHERE t.parent_task_id = ? AND t.status_flag='Active'
+                      ", array($task['task_id']))->result_array();
+                      
+                      if (!empty($children)): 
+                          foreach ($children as $c): 
+                              $status_class = ($c['status'] == 'done') ? 'success' : (($c['status'] == 'in_progress') ? 'warning' : 'default');
+                              $border_color = ($c['status'] == 'done') ? '#2ecc71' : (($c['status'] == 'in_progress') ? '#f1c40f' : '#95a5a6');
+                              $is_active = ($c['work_session_status'] === 'active');
+                      ?>
+                          <div class="hierarchy-child-card" onclick="window.location.href='<?= site_url('task-detail/' . $c['task_id']) ?>';" style="border-left: 4px solid <?= $border_color ?>; cursor: pointer; display: flex; flex-direction: column;">
+                              <h5 style="font-weight: 700; margin: 0 0 6px; color: #34495e; transition: color 0.2s;"><?= htmlspecialchars($c['title']) ?></h5>
+                              <p style="margin: 0 0 10px; font-size: 12px; color: #7f8c8d;">Staff: <strong><?= htmlspecialchars($c['assignee_name'] ?: 'Unassigned') ?></strong></p>
+                              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto;">
+                                  <span class="label label-<?= $status_class ?>" style="text-transform: uppercase; font-size: 9px;"><?= strtoupper($c['status']) ?></span>
+                                  <div style="font-size: 11px; font-weight: 600; color: #555;">
+                                      <?php if ($is_active): ?>
+                                          <i class="fa fa-circle" style="color: #e67e22; animation: blinker 1.5s linear infinite;"></i>
+                                          <span class="session-timer text-warning" data-start-ts="<?= strtotime($c['open_session_start']) ?>" data-start="<?= htmlspecialchars($c['open_session_start']) ?>">00:00:00</span>
+                                      <?php else: ?>
+                                          <i class="fa fa-clock-o"></i> <?= round((float)$c['logged_hours'], 2) ?>h
+                                      <?php endif; ?>
+                                  </div>
+                              </div>
+                          </div>
+                      <?php 
+                          endforeach; 
+                      else: 
+                      ?>
+                          <div class="col-md-12 text-center" style="grid-column: 1 / -1; padding: 20px;">
+                              <p class="text-muted" style="margin:0;"><i class="fa fa-info-circle"></i> No delegated tasks assigned to staff yet.</p>
+                          </div>
+                      <?php endif; ?>
+                  </div>
+              </div>
+          </div>
       </div>
+      <?php endif; ?>
 
       <!-- Sub-tasks -->
       <div class="box box-success">
@@ -103,6 +254,59 @@
             </tbody>
           </table>
           <?php endif; ?>
+        </div>
+      </div>
+
+      <!-- Dependencies -->
+      <div class="box box-warning">
+        <div class="box-header with-border">
+          <h3 class="box-title"><i class="fa fa-link"></i> Task Dependencies</h3>
+          <div class="box-tools pull-right">
+            <button class="btn btn-xs btn-warning" data-toggle="modal" data-target="#addDependencyModal"><i class="fa fa-plus"></i> Add Dependency</button>
+          </div>
+        </div>
+        <div class="box-body" style="padding: 15px;">
+          
+          <!-- Blocked By Section -->
+          <div style="margin-bottom: 20px;">
+            <h5 style="font-weight: bold; color: #d35400; margin-top: 0;"><i class="fa fa-ban"></i> Blocked By (Must be completed first)</h5>
+            <?php if (empty($blocked_by)): ?>
+              <p class="text-muted" style="font-size: 13px;">No blocking tasks.</p>
+            <?php else: ?>
+              <ul class="list-group" style="margin-bottom:0;">
+                <?php foreach ($blocked_by as $dep): ?>
+                <li class="list-group-item" style="padding: 8px 15px; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <span class="badge badge-status-<?php echo $dep['status']; ?>" style="font-size:10px; margin-right: 8px;"><?php $sl=TASK_STATUS_OPT; echo isset($sl[$dep['status']])?$sl[$dep['status']]:$dep['status']; ?></span>
+                    <a href="<?php echo site_url('task-detail/'.$dep['task_id']); ?>"><?php echo htmlspecialchars($dep['title']); ?></a>
+                  </div>
+                  <button class="btn btn-xs btn-danger del_dependency" data-id="<?php echo $dep['dependency_id']; ?>"><i class="fa fa-times"></i></button>
+                </li>
+                <?php endforeach; ?>
+              </ul>
+            <?php endif; ?>
+          </div>
+
+          <!-- Blocking Section -->
+          <div>
+            <h5 style="font-weight: bold; color: #2980b9;"><i class="fa fa-arrow-right"></i> Blocking (Waiting for this task)</h5>
+            <?php if (empty($blocking)): ?>
+              <p class="text-muted" style="font-size: 13px;">This task is not blocking any other tasks.</p>
+            <?php else: ?>
+              <ul class="list-group" style="margin-bottom:0;">
+                <?php foreach ($blocking as $dep): ?>
+                <li class="list-group-item" style="padding: 8px 15px; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <span class="badge badge-status-<?php echo $dep['status']; ?>" style="font-size:10px; margin-right: 8px;"><?php $sl=TASK_STATUS_OPT; echo isset($sl[$dep['status']])?$sl[$dep['status']]:$dep['status']; ?></span>
+                    <a href="<?php echo site_url('task-detail/'.$dep['task_id']); ?>"><?php echo htmlspecialchars($dep['title']); ?></a>
+                  </div>
+                  <button class="btn btn-xs btn-danger del_dependency" data-id="<?php echo $dep['dependency_id']; ?>"><i class="fa fa-times"></i></button>
+                </li>
+                <?php endforeach; ?>
+              </ul>
+            <?php endif; ?>
+          </div>
+
         </div>
       </div>
 
@@ -177,11 +381,23 @@
         <div class="box-body no-padding">
           <table class="table table-condensed" style="margin:0;">
             <tr><td><strong>Assignee</strong></td><td><?php echo htmlspecialchars($task['assignee_name'] ?: 'Unassigned'); ?></td></tr>
-            <tr><td><strong>Reporter</strong></td><td><?php echo htmlspecialchars($task['reporter_name'] ?: '-'); ?></td></tr>
+            <tr><td><strong>Assigned By</strong></td><td><?php echo htmlspecialchars($task['reporter_name'] ?: '-'); ?></td></tr>
             <tr><td><strong>Story</strong></td><td><?php echo htmlspecialchars($task['story_name'] ?: '-'); ?></td></tr>
             <tr><td><strong>Due Date</strong></td>
               <td style="<?php echo (!empty($task['due_date'])&&strtotime($task['due_date'])<time()&&!in_array($task['status'],array('done','closed')))?'color:#c0392b;font-weight:bold;':''; ?>">
-                <?php echo $task['due_date'] ? date('d-M-Y', strtotime($task['due_date'])) : '-'; ?>
+                <?php 
+                if ($task['due_date']) {
+                    echo date('d-M-Y', strtotime($task['due_date'])); 
+                    $diff = (strtotime($task['due_date']) - strtotime(date('Y-m-d'))) / (60 * 60 * 24);
+                    if ($diff < 0 && !in_array($task['status'], array('done','closed'))) {
+                        echo ' <span class="label label-danger" style="margin-left:5px;">Overdue by ' . abs(round($diff)) . ' days</span>';
+                    } elseif (!in_array($task['status'], array('done','closed'))) {
+                        echo ' <span class="label label-success" style="margin-left:5px;">' . round($diff) . ' days remaining</span>';
+                    }
+                } else {
+                    echo '-';
+                }
+                ?>
               </td>
             </tr>
             <?php if ($task['environment'] ?? ''): ?><tr><td><strong>Environment</strong></td><td><?php echo htmlspecialchars($task['environment']); ?></td></tr><?php endif; ?>
@@ -425,6 +641,36 @@
         <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
         <button type="button" id="saveSubTask" class="btn btn-success"><i class="fa fa-save"></i> Add</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Dependency Modal -->
+<div class="modal fade" id="addDependencyModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#f39c12; color:#fff;">
+        <button type="button" class="close" data-dismiss="modal" style="color:#fff;">&times;</button>
+        <h4 class="modal-title"><i class="fa fa-link"></i> Add Dependency</h4>
+      </div>
+      <form id="addDependencyForm">
+        <div class="modal-body">
+          <p>Select a task that this task depends on (i.e. a task that must be completed first):</p>
+          <div class="form-group">
+            <label>Blocked By Task <span class="text-danger">*</span></label>
+            <select id="depends_on_task_id" class="form-control select2" style="width: 100%;" required>
+              <option value="">-- Select a Task --</option>
+              <?php foreach ($project_tasks as $pt): ?>
+              <option value="<?php echo $pt['task_id']; ?>"><?php echo htmlspecialchars($pt['title']); ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-warning"><i class="fa fa-plus"></i> Add</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>

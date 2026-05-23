@@ -34,8 +34,13 @@
         <div class="row">
           <div class="col-md-4">
             <div class="form-group">
-              <label>Search Name</label>
-              <input type="text" name="search" class="form-control" placeholder="Project name..." value="<?php echo htmlspecialchars($f_search ?: ''); ?>">
+              <label>Project</label>
+              <select name="search" class="form-control select2">
+                <option value="">All Projects</option>
+                <?php foreach($projects_dropdown as $pd): ?>
+                <option value="<?php echo $pd['project_id']; ?>" <?php echo ($f_search == $pd['project_id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($pd['name']); ?></option>
+                <?php endforeach; ?>
+              </select>
             </div>
           </div>
           <div class="col-md-3">
@@ -74,9 +79,11 @@
       <h3 class="box-title"><i class="fa fa-folder-open"></i> Project List</h3>
       <div class="box-tools pull-right">
         <a href="<?php echo site_url('project-kanban') ?>" class="btn btn-sm btn-default"><i class="fa fa-columns"></i> Kanban View</a>
+        <?php if ($this->session->userdata(SESS_HEAD . '_role') === 'admin'): ?>
         <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addProjectModal">
           <i class="fa fa-plus"></i> Add Project
         </button>
+        <?php endif; ?>
       </div>
     </div>
     <div class="box-body table-responsive no-padding">
@@ -85,46 +92,64 @@
           <tr>
             <th>#</th>
             <th>Project</th>
-            <th>Key</th>
+            <th>Stacks</th>
             <th>Status</th>
             <th>Priority</th>
+            <th>Mgr Deadline</th>
             <th>Tasks</th>
             <th>Progress</th>
-            <th>Owner</th>
+            <th>Manager</th>
             <th>Dates</th>
+            <th>Remaining Days</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           <?php if (empty($record_list)): ?>
-          <tr><td colspan="10" class="text-center text-muted">No projects found.</td></tr>
+          <tr><td colspan="11" class="text-center text-muted">No projects found.</td></tr>
           <?php else: ?>
           <?php foreach ($record_list as $j => $p):
             $ptask  = (int)$p['task_count'];
             $pdone  = (int)$p['done_count'];
             $ppct   = $ptask > 0 ? round(($pdone / $ptask) * 100) : 0;
             $overdue = (int)$p['overdue_count'];
+            
+            $row_style = '';
+            if ($p['status'] === 'cancelled') {
+                $row_style = 'style="background-color: #f8f9fa; opacity: 0.6; text-decoration: line-through;"';
+            } elseif ($p['status'] === 'on_hold') {
+                $row_style = 'style="background-color: #fff8e1; opacity: 0.8;"';
+            }
           ?>
-          <tr>
+          <tr <?php echo $row_style; ?>>
             <td><?php echo $sno + $j + 1; ?></td>
-            <td>
-              <a href="<?php echo site_url('project-detail/' . $p['project_id']) ?>" style="font-weight:600;">
+             <td>
+              <a href="#" class="project-link-modal" data-id="<?php echo $p['project_id']; ?>" style="font-weight:600;">
                 <?php echo htmlspecialchars($p['name']); ?>
               </a>
               <?php if ($p['description']): ?>
                 <br><small class="text-muted"><?php echo htmlspecialchars(mb_substr($p['description'], 0, 60)); ?>...</small>
               <?php endif; ?>
             </td>
-            <td><code><?php echo htmlspecialchars($p['key_name'] ?: '-'); ?></code></td>
+            <td><?php echo htmlspecialchars($p['stacks'] ?: '-'); ?></td>
             <td>
               <?php
-              $sc = array('planning'=>'purple','active'=>'green','on_hold'=>'yellow','completed'=>'blue','cancelled'=>'red');
-              $sl = PROJECT_STATUS_OPT;
-              $scl = isset($sc[$p['status']]) ? $sc[$p['status']] : 'default';
+              $status_map = array(
+                'planning'  => array('cls'=>'label-planning',  'label'=>'Planning'),
+                'active'    => array('cls'=>'label-active',    'label'=>'Working'),
+                'on_hold'   => array('cls'=>'label-on-hold',   'label'=>'On Hold'),
+                'completed' => array('cls'=>'label-completed', 'label'=>'Completed'),
+                'cancelled' => array('cls'=>'label-cancelled', 'label'=>'Cancelled'),
+              );
+              $sm = isset($status_map[$p['status']]) ? $status_map[$p['status']] : array('cls'=>'label-default','label'=>$p['status']);
               ?>
-              <span class="label label-<?php echo $scl; ?>"><?php echo isset($sl[$p['status']]) ? $sl[$p['status']] : $p['status']; ?></span>
+              <span class="label <?php echo $sm['cls']; ?>"><?php echo $sm['label']; ?></span>
             </td>
             <td><span class="badge badge-priority-<?php echo $p['priority']; ?>"><?php $pl = TASK_PRIORITY_OPT; echo isset($pl[$p['priority']]) ? $pl[$p['priority']] : $p['priority']; ?></span></td>
+            <td>
+              <?php echo $p['manager_deadline_days']; ?> days<br>
+              <span class="label label-primary" style="font-size:10px; font-weight:normal;">Est: <?php echo round($p['calculated_time_hours'], 1); ?>h</span>
+            </td>
             <td>
               <?php echo $pdone; ?>/<?php echo $ptask; ?>
               <?php if ($overdue > 0): ?>
@@ -140,17 +165,55 @@
             <td><?php echo htmlspecialchars($p['owner_name'] ?: '-'); ?></td>
             <td style="font-size:11px; white-space:nowrap;">
               <?php echo $p['start_date'] ? date('d-M-Y', strtotime($p['start_date'])) : '-'; ?>
-              <?php if ($p['end_date']): ?><br>to <?php echo date('d-M-Y', strtotime($p['end_date'])); ?><?php endif; ?>
+              <?php if ($p['end_date']): ?><br><span style="color:#888;">to <?php echo date('d-M-Y', strtotime($p['end_date'])); ?></span><?php endif; ?>
             </td>
-            <td style="white-space:nowrap;">
-              <a href="<?php echo site_url('project-detail/' . $p['project_id']) ?>" class="btn btn-xs btn-info" title="View"><i class="fa fa-eye"></i></a>
+            <td style="text-align:center; white-space:nowrap;">
+              <?php
+              if ($p['start_date'] && $p['end_date']) {
+                  $startDt = new DateTime($p['start_date']);
+                  $endDt   = new DateTime($p['end_date']);
+                  $today   = new DateTime(date('Y-m-d'));
+                  $totalDays     = (int)$startDt->diff($endDt)->days;
+                  $remainDiff    = $today->diff($endDt);
+                  $remainDays    = (int)$remainDiff->days;
+                  $isPast        = $today > $endDt;
+                  echo '<div style="line-height:1.8;">';
+                  echo '<div style="font-size:11px; color:#888;"><i class="fa fa-calendar"></i> Total: <strong>' . $totalDays . ' days</strong></div>';
+                  if ($isPast) {
+                      echo '<span class="deadline-badge deadline-over"><i class="fa fa-exclamation-circle"></i> ' . $remainDays . 'd overdue</span>';
+                  } elseif ($remainDays == 0) {
+                      echo '<span class="deadline-badge deadline-warn"><i class="fa fa-clock-o"></i> Due today</span>';
+                  } elseif ($remainDays <= 7) {
+                      echo '<span class="deadline-badge deadline-warn"><i class="fa fa-clock-o"></i> ' . $remainDays . 'd left</span>';
+                  } else {
+                      echo '<span class="deadline-badge deadline-ok"><i class="fa fa-clock-o"></i> ' . $remainDays . 'd left</span>';
+                  }
+                  echo '</div>';
+              } elseif ($p['end_date']) {
+                  $endDt  = new DateTime($p['end_date']);
+                  $today  = new DateTime(date('Y-m-d'));
+                  $diff   = (int)$today->diff($endDt)->days;
+                  $isPast = $today > $endDt;
+                  if ($isPast) {
+                      echo '<span class="deadline-badge deadline-over"><i class="fa fa-exclamation-circle"></i> ' . $diff . 'd overdue</span>';
+                  } else {
+                      echo '<span class="deadline-badge deadline-ok"><i class="fa fa-clock-o"></i> ' . $diff . 'd left</span>';
+                  }
+              } else {
+                  echo '<span style="color:#bbb; font-size:12px;">—</span>';
+              }
+              ?>
+            </td>
+             <td style="white-space:nowrap;">
+              <a href="#" class="btn btn-xs btn-info btn-view-project-modal" data-id="<?php echo $p['project_id']; ?>" title="View"><i class="fa fa-eye"></i></a>
               <button class="btn btn-xs btn-warning btn-edit-project"
                 data-id="<?php echo $p['project_id']; ?>"
                 data-name="<?php echo htmlspecialchars($p['name'], ENT_QUOTES); ?>"
-                data-key="<?php echo htmlspecialchars($p['key_name'], ENT_QUOTES); ?>"
+                data-stacks="<?php echo htmlspecialchars($p['stacks'] ?: '', ENT_QUOTES); ?>"
                 data-description="<?php echo htmlspecialchars($p['description'], ENT_QUOTES); ?>"
                 data-status="<?php echo $p['status']; ?>"
                 data-priority="<?php echo $p['priority']; ?>"
+                data-deadline="<?php echo $p['manager_deadline_days']; ?>"
                 data-color="<?php echo htmlspecialchars($p['color'], ENT_QUOTES); ?>"
                 data-start="<?php echo $p['start_date']; ?>"
                 data-end="<?php echo $p['end_date']; ?>"
@@ -195,8 +258,8 @@
             </div>
             <div class="col-md-4">
               <div class="form-group">
-                <label>Project Key</label>
-                <input type="text" name="key_name" class="form-control" placeholder="e.g. PROJ" maxlength="10">
+                <label>Project Stacks (Tech Stack)</label>
+                <input type="text" name="stacks" class="form-control" placeholder="e.g. React, Node.js, PHP">
               </div>
             </div>
           </div>
@@ -227,8 +290,8 @@
             </div>
             <div class="col-md-4">
               <div class="form-group">
-                <label>Color</label>
-                <input type="color" name="color" class="form-control" value="#2c3e50" style="height:38px; padding:2px;">
+                <label>Manager Deadline (Days)</label>
+                <input type="number" name="manager_deadline_days" class="form-control" min="0" value="0">
               </div>
             </div>
           </div>
@@ -236,24 +299,31 @@
             <div class="col-md-4">
               <div class="form-group">
                 <label>Start Date</label>
-                <input type="date" name="start_date" class="form-control">
+                <input type="date" name="start_date" id="add_start_date" class="form-control">
               </div>
             </div>
             <div class="col-md-4">
               <div class="form-group">
                 <label>End Date</label>
-                <input type="date" name="end_date" class="form-control">
+                <input type="date" name="end_date" id="add_end_date" class="form-control">
               </div>
             </div>
             <div class="col-md-4">
               <div class="form-group">
-                <label>Owner</label>
+                <label>Manager</label>
                 <select name="owner_id" class="form-control select2">
-                  <option value="">-- Select Owner --</option>
+                  <option value="">-- Select Manager --</option>
                   <?php foreach ($users_list as $u): ?>
                   <option value="<?php echo $u['user_id']; ?>"><?php echo htmlspecialchars($u['name']); ?></option>
                   <?php endforeach; ?>
                 </select>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-12">
+              <div id="add_deadline_wrapper" style="margin-top:-5px; margin-bottom:15px; font-weight:bold; font-size:13px; color:#3c8dbc; display:none;">
+                <i class="fa fa-clock-o"></i> Deadline: <span id="add_deadline_days">0</span> days
               </div>
             </div>
           </div>
@@ -288,8 +358,8 @@
             </div>
             <div class="col-md-4">
               <div class="form-group">
-                <label>Project Key</label>
-                <input type="text" name="key_name" id="edit_key_name" class="form-control" maxlength="10">
+                <label>Project Stacks (Tech Stack)</label>
+                <input type="text" name="stacks" id="edit_stacks" class="form-control" placeholder="e.g. React, Node.js, PHP">
               </div>
             </div>
           </div>
@@ -320,8 +390,8 @@
             </div>
             <div class="col-md-4">
               <div class="form-group">
-                <label>Color</label>
-                <input type="color" name="color" id="edit_color" class="form-control" style="height:38px; padding:2px;">
+                <label>Manager Deadline (Days)</label>
+                <input type="number" name="manager_deadline_days" id="edit_deadline_input" class="form-control" min="0">
               </div>
             </div>
           </div>
@@ -340,13 +410,20 @@
             </div>
             <div class="col-md-4">
               <div class="form-group">
-                <label>Owner</label>
+                <label>Manager</label>
                 <select name="owner_id" id="edit_owner_id" class="form-control select2">
-                  <option value="">-- Select Owner --</option>
+                  <option value="">-- Select Manager --</option>
                   <?php foreach ($users_list as $u): ?>
                   <option value="<?php echo $u['user_id']; ?>"><?php echo htmlspecialchars($u['name']); ?></option>
                   <?php endforeach; ?>
                 </select>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-12">
+              <div id="edit_deadline_wrapper" style="margin-top:-5px; margin-bottom:15px; font-weight:bold; font-size:13px; color:#3c8dbc; display:none;">
+                <i class="fa fa-clock-o"></i> Deadline: <span id="edit_deadline_days">0</span> days
               </div>
             </div>
           </div>

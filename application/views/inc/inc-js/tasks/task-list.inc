@@ -2,7 +2,7 @@
 jQuery(function ($) {
     $('.select2').select2({ width: '100%' });
 
-    // Populate Edit Task modal
+    // ── Populate Edit Task modal ──────────────────────────────────────────────
     $(document).on('click', '.btn-edit-task', function () {
         var $b = $(this);
         $('#edit_task_id').val($b.data('id'));
@@ -20,23 +20,36 @@ jQuery(function ($) {
         $('#editTaskModal').modal('show');
     });
 
-    // Delete record
+    // ── Delete record ─────────────────────────────────────────────────────────
     $(document).on('click', '.del_record', function () {
-        if (!confirm('Are you sure you want to delete this task?')) return;
         var id  = $(this).val();
         var tbl = $(this).data('tbl');
         var col = $(this).data('col');
-        $.ajax({
-            url: '<?php echo site_url('delete-record'); ?>',
-            type: 'post',
-            data: { tbl: tbl, col: col, id: id },
-            dataType: 'json',
-            success: function (res) {
-                alert(res.message);
-                if (res.success) location.reload();
-            },
-            error: function () { alert('Delete failed. Please try again.'); }
+        Swal.fire({
+            title: 'Are you sure?',
+            text: 'This record will be permanently removed.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#c0392b',
+            confirmButtonText: 'Yes, delete it!'
+        }).then(function(result) {
+            if (!result.isConfirmed) return;
+            $.ajax({
+                url: '<?php echo site_url('delete-record'); ?>',
+                type: 'post',
+                data: { tbl: tbl, col: col, id: id },
+                dataType: 'json',
+                success: function (res) {
+                    if (res.success) {
+                        Swal.fire('Deleted!', res.message, 'success').then(function(){ location.reload(); });
+                    } else {
+                        Swal.fire('Error', res.message, 'error');
+                    }
+                },
+                error: function () { Swal.fire('Error', 'Delete failed. Please try again.', 'error'); }
+            });
         });
     });
+
 });
 </script>

@@ -34,7 +34,7 @@ defined('SESS_HEAD') OR define('SESS_HEAD', 'TM');
 defined('TASK_STATUS_OPT') OR define('TASK_STATUS_OPT', array(
     'backlog'     => 'Backlog',
     'todo'        => 'Todo',
-    'in_progress' => 'In Progress',
+    'in_progress' => 'Working',
     'in_review'   => 'In Review',
     'done'        => 'Done',
     'closed'      => 'Closed',
@@ -44,7 +44,6 @@ defined('TASK_PRIORITY_OPT') OR define('TASK_PRIORITY_OPT', array(
     'low'      => 'Low',
     'medium'   => 'Medium',
     'high'     => 'High',
-    'critical' => 'Critical',
 ));
 
 defined('TASK_TYPE_OPT') OR define('TASK_TYPE_OPT', array(
@@ -60,15 +59,15 @@ defined('TASK_TYPE_OPT') OR define('TASK_TYPE_OPT', array(
 
 defined('PROJECT_STATUS_OPT') OR define('PROJECT_STATUS_OPT', array(
     'planning'  => 'Planning',
-    'active'    => 'Active',
+    'active'    => 'Working',
     'on_hold'   => 'On Hold',
     'completed' => 'Completed',
     'cancelled' => 'Cancelled',
 ));
 
 defined('USER_ROLE_OPT') OR define('USER_ROLE_OPT', array(
-    'admin'   => 'Admin',
-    'manager' => 'Manager',
-    'member'  => 'Member',
-    'viewer'  => 'Viewer',
+    'admin'       => 'Admin',
+    'manager'     => 'Manager',
+    'team_leader' => 'Team Leader',
+    'staff'       => 'Staff',
 ));

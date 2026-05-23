@@ -5,6 +5,11 @@ class Epic extends CI_Controller
     {
         if (!$this->session->userdata(SESS_HEAD . '_logged_in'))
             redirect('login');
+
+        if (!has_menu_permission('epics')) {
+            $this->session->set_flashdata('alert_error', 'You do not have permission to access Epics.');
+            redirect_to_fallback();
+        }
     }
 
     public function epic_list()
@@ -18,6 +23,14 @@ class Epic extends CI_Controller
         $uid = $this->session->userdata(SESS_HEAD . '_user_id');
 
         if ($this->input->post('mode') == 'Add') {
+            $user_role = $this->session->userdata(SESS_HEAD . '_role');
+            if (!in_array($user_role, ['admin', 'manager', 'team_leader'])) {
+                $this->session->set_flashdata('alert_error', 'Only Team Leaders or Managers can create Epics.');
+                redirect($data['s_url']);
+            }
+            $est_h = (float)$this->input->post('est_hours');
+            $est_m = (float)$this->input->post('est_minutes');
+            $estimated_time = round(($est_h * 60) + $est_m);
             $ins = array(
                 'project_id'   => $this->input->post('project_id'),
                 'name'         => $this->input->post('name'),
@@ -25,8 +38,7 @@ class Epic extends CI_Controller
                 'status'       => $this->input->post('status') ?: 'open',
                 'priority'     => $this->input->post('priority') ?: 'medium',
                 'color'        => $this->input->post('color') ?: '#9b59b6',
-                'start_date'   => $this->input->post('start_date') ?: NULL,
-                'end_date'     => $this->input->post('end_date') ?: NULL,
+                'estimated_time'=> $estimated_time,
                 'status_flag'  => 'Active',
                 'created_by'   => $uid,
                 'created_date' => date('Y-m-d H:i:s'),
@@ -39,6 +51,14 @@ class Epic extends CI_Controller
         }
 
         if ($this->input->post('mode') == 'Edit') {
+            $user_role = $this->session->userdata(SESS_HEAD . '_role');
+            if (!in_array($user_role, ['admin', 'manager', 'team_leader'])) {
+                $this->session->set_flashdata('alert_error', 'Only Team Leaders or Managers can edit Epics.');
+                redirect($data['s_url']);
+            }
+            $est_h = (float)$this->input->post('est_hours');
+            $est_m = (float)$this->input->post('est_minutes');
+            $estimated_time = round(($est_h * 60) + $est_m);
             $upd = array(
                 'project_id'   => $this->input->post('project_id'),
                 'name'         => $this->input->post('name'),
@@ -46,8 +66,7 @@ class Epic extends CI_Controller
                 'status'       => $this->input->post('status'),
                 'priority'     => $this->input->post('priority'),
                 'color'        => $this->input->post('color'),
-                'start_date'   => $this->input->post('start_date') ?: NULL,
-                'end_date'     => $this->input->post('end_date') ?: NULL,
+                'estimated_time'=> $estimated_time,
                 'updated_by'   => $uid,
                 'updated_date' => date('Y-m-d H:i:s'),
             );
@@ -73,7 +92,8 @@ class Epic extends CI_Controller
         $this->pagination->initialize($config);
 
         $sql = "SELECT e.*, p.name as project_name,
-                    (SELECT COUNT(*) FROM tm_user_stories WHERE epic_id=e.epic_id AND status_flag='Active') as story_count
+                    (SELECT COUNT(*) FROM tm_user_stories WHERE epic_id=e.epic_id AND status_flag='Active') as story_count,
+                    COALESCE((SELECT SUM(t.estimated_hours) FROM tm_tasks t WHERE (t.epic_id = e.epic_id OR t.story_id IN (SELECT story_id FROM tm_user_stories WHERE epic_id=e.epic_id AND status_flag='Active')) AND t.status_flag='Active'), 0) as calculated_time_hours
                 FROM tm_epics e
                 LEFT JOIN tm_projects p ON p.project_id = e.project_id
                 WHERE {$where}
@@ -81,7 +101,13 @@ class Epic extends CI_Controller
                 LIMIT {$offset}, 30";
         $data['record_list']   = $this->db->query($sql)->result_array();
         $data['pagination']    = $this->pagination->create_links();
-        $data['projects_list'] = $this->db->query("SELECT project_id, name FROM tm_projects WHERE status_flag='Active' ORDER BY name")->result_array();
+        $role = $this->session->userdata(SESS_HEAD . '_role');
+        $uid = $this->session->userdata(SESS_HEAD . '_user_id');
+        if ($role === 'team_leader') {
+            $data['projects_list'] = $this->db->query("SELECT p.project_id, p.name FROM tm_projects p JOIN tm_project_handlers h ON h.project_id = p.project_id WHERE p.status_flag='Active' AND h.team_leader_id=? AND h.status='active' ORDER BY p.name", array($uid))->result_array();
+        } else {
+            $data['projects_list'] = $this->db->query("SELECT project_id, name FROM tm_projects WHERE status_flag='Active' ORDER BY name")->result_array();
+        }
         $data['f_project']     = $f_project;
         $data['f_status']      = $f_status;
 
@@ -95,6 +121,7 @@ class Epic extends CI_Controller
             'total_rows'       => $total,
             'per_page'         => $per_page,
             'uri_segment'      => 2,
+            'reuse_query_string' => TRUE,
             'attributes'       => array('class' => 'page-link'),
             'full_tag_open'    => '<ul class="pagination pagination-sm no-margin pull-right">',
             'full_tag_close'   => '</ul>',

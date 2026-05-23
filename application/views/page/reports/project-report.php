@@ -124,7 +124,10 @@
           <?php $pct = $p['total_tasks'] ? round($p['done_tasks']/$p['total_tasks']*100) : 0; $psl=PROJECT_STATUS_OPT; $pl=TASK_PRIORITY_OPT; ?>
           <tr>
             <td><?php echo $j+1; ?></td>
-            <td><a href="<?php echo site_url('project-detail/'.$p['project_id']); ?>"><strong><?php echo htmlspecialchars($p['name']); ?></strong></a></td>
+            <td>
+              <a href="#" class="project-link-modal" data-id="<?php echo $p['project_id']; ?>"><strong><?php echo htmlspecialchars($p['name']); ?></strong></a>
+              <button class="btn btn-xs btn-default btn-view-project-modal" data-id="<?php echo $p['project_id']; ?>" style="margin-left:5px; padding: 1px 3px; border-radius: 3px; font-size: 9px;" title="Quick View Team & Effort"><i class="fa fa-eye"></i></button>
+            </td>
             <td><span class="label label-default"><?php echo isset($psl[$p['status']])?$psl[$p['status']]:$p['status']; ?></span></td>
             <td><span class="badge badge-priority-<?php echo $p['priority']; ?>"><?php echo isset($pl[$p['priority']])?$pl[$p['priority']]:$p['priority']; ?></span></td>
             <td><?php echo $p['total_tasks']; ?></td>

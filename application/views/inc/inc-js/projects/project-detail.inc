@@ -1,8 +1,118 @@
+<script src="<?php echo base_url('asset/bower_components/chart.js/Chart.js'); ?>"></script>
 <script>
 jQuery(function ($) {
 
-    var roleColors = {admin:'#c0392b', manager:'#e67e22', member:'#2980b9', viewer:'#7f8c8d'};
-    var roleLabels = {admin:'Admin', manager:'Manager', member:'Member', viewer:'Viewer'};
+    var roleColors = {admin:'#c0392b', manager:'#e67e22', team_leader:'#2980b9', staff:'#7f8c8d'};
+    var roleLabels = {admin:'Admin', manager:'Manager', team_leader:'Team Leader', staff:'Staff'};
+
+    // ── Analytics Charts ──────────────────────────────────────────────
+    var priorityData = <?php echo json_encode($tasks_by_priority); ?>;
+    var typeData = <?php echo json_encode($tasks_by_type); ?>;
+    var timeTrendData = <?php echo json_encode($time_logged_trend); ?>;
+    var statusData = <?php echo json_encode($tasks_by_status); ?>;
+    var assigneeData = <?php echo json_encode($tasks_by_assignee); ?>;
+    
+    var totalTasks = <?php echo (int)$total_tasks; ?>;
+    var doneTasks = <?php echo (int)$done_tasks; ?>;
+    var overdueTasks = <?php echo (int)$overdue_tasks; ?>;
+    var remainingTasks = Math.max(0, totalTasks - doneTasks - overdueTasks);
+
+    // 1. Status Chart (Pie)
+    var statusColors = {'backlog':'#95a5a6','todo':'#3498db','in_progress':'#e67e22','in_review':'#9b59b6','done':'#27ae60','closed':'#7f8c8d'};
+    var statusLabels = Object.keys(statusData).map(function(k) { return k.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()); });
+    var statusValues = Object.values(statusData);
+    var statusBgColors = Object.keys(statusData).map(function(k) { return statusColors[k] || '#ccc'; });
+
+    if ($('#statusChart').length) {
+        new Chart($('#statusChart').get(0).getContext('2d'), {
+            type: 'pie',
+            data: { labels: statusLabels, datasets: [{ data: statusValues, backgroundColor: statusBgColors }] },
+            options: { responsive: true, maintainAspectRatio: false, legend: { position: 'right', labels: { boxWidth: 10, fontSize: 10 } } }
+        });
+    }
+
+    // 2. Progress Chart (Doughnut)
+    if ($('#progressChart').length) {
+        new Chart($('#progressChart').get(0).getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Done', 'Overdue', 'Remaining'],
+                datasets: [{ data: [doneTasks, overdueTasks, remainingTasks], backgroundColor: ['#27ae60', '#c0392b', '#f1c40f'] }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, legend: { position: 'right', labels: { boxWidth: 10, fontSize: 10 } } }
+        });
+    }
+
+    // 3. Priority Chart (Doughnut)
+    var priorityLabels = Object.keys(priorityData).map(function(k) { return k.charAt(0).toUpperCase() + k.slice(1); });
+    var priorityValues = Object.values(priorityData);
+    var priorityColors = { 'low': '#27ae60', 'medium': '#2980b9', 'high': '#e67e22', 'critical': '#c0392b' };
+    var pBgColors = Object.keys(priorityData).map(function(k) { return priorityColors[k] || '#95a5a6'; });
+
+    if ($('#priorityChart').length) {
+        new Chart($('#priorityChart').get(0).getContext('2d'), {
+            type: 'doughnut',
+            data: { labels: priorityLabels, datasets: [{ data: priorityValues, backgroundColor: pBgColors }] },
+            options: { responsive: true, maintainAspectRatio: false, legend: { position: 'right', labels: { boxWidth: 10, fontSize: 10 } } }
+        });
+    }
+
+    // 4. Type Chart (Bar)
+    var typeLabels = Object.keys(typeData).map(function(k) { return k.charAt(0).toUpperCase() + k.slice(1); });
+    var typeValues = Object.values(typeData);
+    var typeBgColors = Object.keys(typeData).map(function(k, i) {
+        var colors = ['#3498db', '#e74c3c', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
+        return colors[i % colors.length];
+    });
+
+    if ($('#typeChart').length) {
+        new Chart($('#typeChart').get(0).getContext('2d'), {
+            type: 'bar',
+            data: { labels: typeLabels, datasets: [{ label: 'Tasks', data: typeValues, backgroundColor: typeBgColors }] },
+            options: { responsive: true, maintainAspectRatio: false, legend: { display: false }, scales: { yAxes: [{ ticks: { beginAtZero: true, stepSize: 1 } }], xAxes: [{ ticks: { fontSize: 10 } }] } }
+        });
+    }
+
+    // 5. Assignee Chart (Bar)
+    var assigneeLabels = Object.keys(assigneeData);
+    var assigneeValues = Object.values(assigneeData);
+    
+    if ($('#assigneeChart').length) {
+        new Chart($('#assigneeChart').get(0).getContext('2d'), {
+            type: 'horizontalBar',
+            data: { labels: assigneeLabels, datasets: [{ label: 'Tasks', data: assigneeValues, backgroundColor: '#e74c3c' }] },
+            options: { responsive: true, maintainAspectRatio: false, legend: { display: false }, scales: { xAxes: [{ ticks: { beginAtZero: true, stepSize: 1 } }], yAxes: [{ ticks: { fontSize: 10 } }] } }
+        });
+    }
+
+    // 6. Time Logged Chart (Line)
+    var trendLabels = Object.keys(timeTrendData);
+    var trendValues = Object.values(timeTrendData);
+
+    if ($('#timeLogChart').length) {
+        new Chart($('#timeLogChart').get(0).getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: trendLabels,
+                datasets: [{
+                    label: 'Hours Logged',
+                    data: trendValues,
+                    backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                    borderColor: '#2980b9',
+                    pointBackgroundColor: '#2980b9',
+                    borderWidth: 2,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, legend: { display: false },
+                scales: { 
+                    xAxes: [{ gridLines: { display: false }, ticks: { autoSkip: true, maxTicksLimit: 5 } }],
+                    yAxes: [{ ticks: { beginAtZero: true } }] 
+                }
+            }
+        });
+    }
 
     // ── Add Member ────────────────────────────────────────────────────
     $('#btnAddMember').on('click', function () {

@@ -47,7 +47,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  * @author		EllisLab Dev Team
  * @link		https://codeigniter.com/userguide3/libraries/security.html
  */
-class CI_Security {
+class CI_Security{
 
 	/**
 	 * List of sanitize filename strings
