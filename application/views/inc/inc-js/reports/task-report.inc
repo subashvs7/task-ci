@@ -27,7 +27,7 @@ function exportTableToExcel(tableID, filename = ''){
 jQuery(function ($) {
     $('.select2').select2({ width: '100%' });
 
-    <?php if ($f_project): ?>
+
     // Chart Settings
     var pieOptions = {
         segmentShowStroke: true,
@@ -106,9 +106,37 @@ jQuery(function ($) {
     <?php
     $dateLabels = [];
     $dateDataArr = [];
+    
+    $date_counts = [];
     foreach ($tasks_by_date as $r) {
-        $dateLabels[] = date('M d', strtotime($r['t_date']));
-        $dateDataArr[] = (int)$r['cnt'];
+        $date_counts[$r['t_date']] = (int)$r['cnt'];
+    }
+
+    if (!empty($f_date_from) && !empty($f_date_to)) {
+        $start_date = strtotime($f_date_from);
+        $end_date = strtotime($f_date_to);
+    } else if (!empty($f_date_from)) {
+        $start_date = strtotime($f_date_from);
+        $end_date = time();
+    } else if (!empty($f_date_to)) {
+        $start_date = strtotime('-6 days', strtotime($f_date_to));
+        $end_date = strtotime($f_date_to);
+    } else {
+        $start_date = strtotime('-6 days');
+        $end_date = time();
+    }
+    
+    // Safety cap to prevent too many points
+    if (($end_date - $start_date) > 90 * 86400) {
+        $start_date = $end_date - 90 * 86400;
+    }
+    
+    $current_date = $start_date;
+    while ($current_date <= $end_date) {
+        $d_str = date('Y-m-d', $current_date);
+        $dateLabels[] = date('M d', $current_date);
+        $dateDataArr[] = isset($date_counts[$d_str]) ? $date_counts[$d_str] : 0;
+        $current_date = strtotime('+1 day', $current_date);
     }
     ?>
     if ($('#chartDate').length) {
@@ -135,6 +163,6 @@ jQuery(function ($) {
         var ctxDate = $('#chartDate').get(0).getContext('2d');
         new Chart(ctxDate).Line(lineChartData, lineOptions);
     }
-    <?php endif; ?>
+
 });
 </script>

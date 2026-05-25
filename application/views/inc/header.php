@@ -48,10 +48,37 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     .skin-blue .main-sidebar, .skin-blue .left-side {
       background-color: #2c3e50;
     }
-    .main-header .logo img {
-      max-height: 50px;
+    .main-header .logo {
+      padding: 0 !important;
+      height: 50px;
+      line-height: 50px;
+      overflow: hidden;
+    }
+    .main-header .logo .logo-lg {
+      display: block;
+      height: 50px;
+      width: 100%;
+    }
+    .main-header .logo .logo-lg img {
+      height: 100%;
+      width: 100%;
+      object-fit: contain;
+      object-position: center;
+    }
+    .main-header .logo .logo-mini {
+      position: relative;
+      height: 50px;
+      width: 50px;
+      margin: 0 auto;
+      overflow: hidden;
+    }
+    .main-header .logo .logo-mini img {
+      height: 40px;
       width: auto;
-      height: auto;
+      max-width: none;
+      position: absolute;
+      left: 5px;
+      top: 5px;
     }
     .badge-status-backlog    { background-color: #95a5a6; }
     .badge-status-todo       { background-color: #3498db; }
@@ -100,7 +127,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     .time-log-item { padding: 8px 12px; border-bottom: 1px solid #eee; }
     .attachment-item { display: inline-block; margin: 5px; padding: 6px 10px; background: #ecf0f1; border-radius: 4px; font-size: 12px; }
     @media (max-width: 767px) {
-      .main-header .logo img { max-height: 35px; }
+      .main-header .logo .logo-lg img { max-height: 35px; }
       .navbar-center { font-size: 14px; }
     }
   </style>
@@ -112,7 +139,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
   <header class="main-header">
     <a href="<?php echo site_url('dash'); ?>" class="logo bg-white">
-      <img src="<?php echo base_url('asset/frontend/img/logo.png') ?>" alt="<?php echo APP_NAME; ?>" class="img-responsive">
+      <span class="logo-mini">
+        <img src="<?php echo base_url('asset/frontend/img/zazutask_new.png') ?>" alt="Mini">
+      </span>
+      <span class="logo-lg">
+        <img src="<?php echo base_url('asset/frontend/img/zazutask_new.png') ?>" alt="<?php echo APP_NAME; ?>">
+      </span>
     </a>
 
     <nav class="navbar navbar-static-top">

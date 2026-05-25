@@ -165,14 +165,52 @@ class Story extends CI_Controller
                 $task_where .= " AND t.assigned_to = {$uid}";
             }
             
+            // Only fetch parent tasks here
             $task_sql = "SELECT t.*, u.name as active_worker_name,
                             (SELECT started_at FROM tm_task_sessions WHERE task_id=t.task_id AND ended_at IS NULL AND status_flag='Active' LIMIT 1) as open_session_start,
                             COALESCE((SELECT SUM(hours) FROM tm_time_logs WHERE task_id=t.task_id AND status_flag='Active'), 0) as logged_hours
                          FROM tm_tasks t 
                          LEFT JOIN tm_users u ON u.user_id = t.active_session_user 
-                         WHERE {$task_where}
+                         WHERE {$task_where} AND t.parent_task_id IS NULL
                          ORDER BY t.work_session_status DESC, t.created_date ASC";
             $tasks = $this->db->query($task_sql)->result_array();
+
+            // Fetch child tasks (task-type subtasks)
+            $parent_ids = array_column($tasks, 'task_id');
+            $subtasks_by_parent = [];
+            if (!empty($parent_ids)) {
+                $sub_sql = "SELECT t.*, u.name as active_worker_name,
+                                (SELECT started_at FROM tm_task_sessions WHERE task_id=t.task_id AND ended_at IS NULL AND status_flag='Active' LIMIT 1) as open_session_start,
+                                COALESCE((SELECT SUM(hours) FROM tm_time_logs WHERE task_id=t.task_id AND status_flag='Active'), 0) as logged_hours
+                             FROM tm_tasks t 
+                             LEFT JOIN tm_users u ON u.user_id = t.active_session_user 
+                             WHERE t.parent_task_id IN (" . implode(',', $parent_ids) . ") AND t.status_flag='Active'
+                             ORDER BY t.created_date ASC";
+                $sub_res = $this->db->query($sub_sql)->result_array();
+                foreach ($sub_res as $sub) {
+                    $subtasks_by_parent[$sub['parent_task_id']][] = $sub;
+                }
+            }
+
+            // Fetch checklist subtasks (from tm_subtasks)
+            $checklist_by_parent = [];
+            if (!empty($parent_ids)) {
+                $check_sql = "SELECT *, subtask_id as sub_task_id, IF(is_done=1,'done','todo') as status
+                              FROM tm_subtasks 
+                              WHERE task_id IN (" . implode(',', $parent_ids) . ") AND status_flag='Active'
+                              ORDER BY created_date ASC";
+                $check_res = $this->db->query($check_sql)->result_array();
+                foreach ($check_res as $chk) {
+                    $checklist_by_parent[$chk['task_id']][] = $chk;
+                }
+            }
+
+            // Attach subtasks and checklists to each parent task
+            foreach ($tasks as &$task) {
+                $task['sub_tasks'] = isset($subtasks_by_parent[$task['task_id']]) ? $subtasks_by_parent[$task['task_id']] : [];
+                $task['checklist'] = isset($checklist_by_parent[$task['task_id']]) ? $checklist_by_parent[$task['task_id']] : [];
+            }
+
             foreach ($tasks as $t) {
                 $tasks_by_story[$t['story_id']][] = $t;
             }

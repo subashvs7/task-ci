@@ -72,7 +72,7 @@ function format_hours($decimal_hours) {
     <div class="box-body table-responsive no-padding">
       <table class="table table-hover table-bordered">
         <thead>
-          <tr><th>#</th><th>Story Name</th><th>Project</th><th>Epic</th><th>Status</th><th>Priority</th><th>TL Est. Time</th><th>Est. Time</th><th>Assignee</th><th>Sub Tasks</th><th>Actions</th></tr>
+          <tr><th>#</th><th>Story Name</th><th>Project</th><th>Epic</th><th>Status</th><th>Priority</th><th>TL Est. Time</th><th>Est. Time</th><th>Assignee</th><th>Tasks</th><th>Actions</th></tr>
         </thead>
         <tbody>
           <?php if (empty($record_list)): ?>
@@ -196,6 +196,111 @@ function format_hours($decimal_hours) {
                             <?php endif; ?>
                           </td>
                         </tr>
+
+                        <!-- Render Sub Tasks of this Task -->
+                        <?php if (!empty($task['sub_tasks'])): ?>
+                          <?php foreach ($task['sub_tasks'] as $sub): ?>
+                            <?php
+                              $sub_is_active_session = ($sub['work_session_status'] === 'active');
+                              $sub_is_my_session     = $sub_is_active_session && ((int)$sub['active_session_user'] === (int)$this->session->userdata(SESS_HEAD . '_user_id'));
+                              $sub_is_done_closed    = in_array($sub['status'], array('done','closed'));
+                              $sub_can_toggle        = !$sub_is_done_closed; 
+                              $sub_row_bg            = $sub_is_my_session ? 'background:#f0fff4;' : 'background:#fafbfc;';
+                              
+                              $sub_est_h = (float)$sub['estimated_hours'];
+                              $sub_log_h = (float)$sub['logged_hours'];
+                              
+                              if ($sub_is_active_session && !empty($sub['open_session_start'])) {
+                                  $sub_start_time = strtotime($sub['open_session_start']);
+                                  $sub_elapsed = (time() - $sub_start_time) / 3600;
+                                  if ($sub_elapsed > 0) {
+                                      $sub_log_h += $sub_elapsed;
+                                  }
+                              }
+
+                              $sub_is_overdue = ($sub_est_h > 0 && $sub_log_h > $sub_est_h);
+                              $sub_over_h = max(0, $sub_log_h - $sub_est_h);
+                              
+                              $sub_log_display = round($sub_log_h, 2) . 'h';
+                              if ($sub_is_overdue) {
+                                  $sub_log_display .= ' <span style="color:#e74c3c; font-weight:bold; font-size:10px; display:inline-block;"><br><i class="fa fa-warning"></i> +' . round($sub_over_h, 2) . 'h Over</span>';
+                              } elseif ($sub_est_h > 0 && $sub_log_h == $sub_est_h) {
+                                  $sub_log_display .= ' <span style="color:#f39c12; font-weight:bold; font-size:10px; display:inline-block;"><br>Limit Reached</span>';
+                              }
+                            ?>
+                            <tr style="<?php echo $sub_row_bg; ?>">
+                              <td></td>
+                              <td style="padding-left: 25px;">
+                                <i class="fa fa-level-up fa-rotate-90 text-muted" style="margin-right: 5px;"></i>
+                                <a href="#" class="task-link-modal" data-id="<?php echo $sub['task_id']; ?>"><?php echo htmlspecialchars($sub['title']); ?></a>
+                                <span class="label label-xs label-default" style="font-size: 8px; padding: 1px 3px; font-weight: normal; margin-left: 5px;">Sub Task</span>
+                              </td>
+                              <td>
+                                <span class="badge badge-status-<?php echo $sub['status']; ?>" style="<?php echo $sub_is_active_session ? 'background-color:#10b981;' : ''; ?>">
+                                  <?php 
+                                    if ($sub_is_active_session) {
+                                        echo 'Working';
+                                    } else {
+                                        echo isset(TASK_STATUS_OPT[$sub['status']]) ? TASK_STATUS_OPT[$sub['status']] : $sub['status'];
+                                    }
+                                  ?>
+                                </span>
+                              </td>
+                              <td><?php echo format_hours($sub_est_h); ?></td>
+                              <td><?php echo $sub_log_display; ?></td>
+                              <td>
+                                <?php if ($sub_is_done_closed): ?>
+                                  <span class="label label-success"><i class="fa fa-check-circle"></i> Completed</span>
+                                <?php elseif ($sub_is_my_session): ?>
+                                  <button class="btn btn-xs btn-danger btn-task-session" data-task="<?php echo $sub['task_id']; ?>" data-action="stop" style="font-weight:600;"><i class="fa fa-stop-circle"></i> Stop Work</button>
+                                  <br><span class="session-timer text-success" data-start-ts="<?php echo strtotime($sub['open_session_start']); ?>" data-start="<?php echo htmlspecialchars($sub['open_session_start']); ?>" style="font-size:11px; font-weight:700; font-family:monospace;">00:00:00</span>
+                                <?php elseif ($sub_is_active_session): ?>
+                                  <span style="color:#e67e22;"><i class="fa fa-circle"></i> Working (<?php echo htmlspecialchars($sub['active_worker_name']); ?>)</span>
+                                <?php elseif ($sub_can_toggle): ?>
+                                  <button class="btn btn-xs btn-success btn-task-session" data-task="<?php echo $sub['task_id']; ?>" data-action="start" style="font-weight:600;"><i class="fa fa-play-circle"></i> Start Work</button>
+                                <?php else: ?>
+                                  <span class="text-muted"><i class="fa fa-circle-o"></i> Not Started</span>
+                                <?php endif; ?>
+                              </td>
+                              <td style="text-align:center;">
+                                <?php if (!$sub_is_done_closed): ?>
+                                    <?php if (in_array($this->session->userdata(SESS_HEAD.'_role'), ['admin','manager','team_leader']) || $sub['assigned_to'] == $this->session->userdata(SESS_HEAD.'_user_id')): ?>
+                                      <button class="btn btn-xs btn-primary btn-task-complete" data-task="<?php echo $sub['task_id']; ?>" style="font-weight:600;"><i class="fa fa-check"></i> Complete</button>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+                              </td>
+                            </tr>
+                          <?php endforeach; ?>
+                        <?php endif; ?>
+
+                        <!-- Render Checklist Subtasks of this Task -->
+                        <?php if (!empty($task['checklist'])): ?>
+                          <?php foreach ($task['checklist'] as $chk): ?>
+                            <tr style="background:#fafbfc;">
+                              <td></td>
+                              <td style="padding-left: 25px;">
+                                <i class="fa fa-angle-double-right text-muted" style="margin-right: 5px;"></i>
+                                <span class="text-muted"><?php echo htmlspecialchars($chk['title']); ?></span>
+                                <span class="label label-xs label-info" style="font-size: 8px; padding: 1px 3px; font-weight: normal; margin-left: 5px;">Checklist Item</span>
+                              </td>
+                              <td>
+                                <span class="badge <?php echo ($chk['status'] === 'done') ? 'badge-status-done' : 'badge-status-todo'; ?>" style="font-size: 10px;">
+                                  <?php echo ($chk['status'] === 'done') ? 'Done' : 'Todo'; ?>
+                                </span>
+                              </td>
+                              <td>-</td>
+                              <td>-</td>
+                              <td>
+                                <?php if ($chk['status'] === 'done'): ?>
+                                  <span class="text-success"><i class="fa fa-check-square-o"></i> Done</span>
+                                <?php else: ?>
+                                  <span class="text-muted"><i class="fa fa-square-o"></i> Todo</span>
+                                <?php endif; ?>
+                              </td>
+                              <td></td>
+                            </tr>
+                          <?php endforeach; ?>
+                        <?php endif; ?>
                       <?php endforeach; ?>
                     </tbody>
                   </table>

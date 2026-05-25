@@ -39,10 +39,7 @@ jQuery(function ($) {
         $('#pw_strength_text').text(pw.length ? labels[str] : '').css('color', colors[str] || '');
     });
 
-    // ── Auto-open Add User modal when URL has ?action=add ──────────
-    if (new URLSearchParams(window.location.search).get('action') === 'add') {
-        $('#addUserModal').modal('show');
-    }
+
 
 });
 </script>
