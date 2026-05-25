@@ -29,7 +29,7 @@ if (!function_exists('has_menu_permission')) {
             array($role)
         );
 
-        if ($query->num_rows() > 0) {
+        if ($query && $query->num_rows() > 0) {
             $perms = json_decode($query->row()->permissions, true);
             if (is_array($perms) && isset($perms[$menu_key])) {
                 return (int)$perms[$menu_key] === 1;
@@ -128,12 +128,13 @@ if (!function_exists('get_assignable_users')) {
             $CI->db->where('user_id', $uid);
         }
 
-        if ($project_id !== NULL) {
+        if ($project_id !== NULL && $project_id !== '' && (int)$project_id > 0) {
             $CI->db->join('tm_project_members', 'tm_project_members.user_id = tm_users.user_id');
             $CI->db->where('tm_project_members.project_id', (int)$project_id);
         }
 
-        return $CI->db->order_by('name', 'ASC')->get()->result_array();
+        $query = $CI->db->order_by('name', 'ASC')->get();
+        return $query ? $query->result_array() : array();
     }
 }
 
