@@ -35,7 +35,7 @@
           <div class="col-md-4">
             <div class="form-group">
               <label>Project</label>
-              <select name="search" class="form-control select2">
+              <select name="search" class="form-control select2" onchange="this.form.submit()">
                 <option value="">All Projects</option>
                 <?php foreach($projects_dropdown as $pd): ?>
                 <option value="<?php echo $pd['project_id']; ?>" <?php echo ($f_search == $pd['project_id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($pd['name']); ?></option>
@@ -43,10 +43,10 @@
               </select>
             </div>
           </div>
-          <div class="col-md-3">
+          <div class="col-md-4">
             <div class="form-group">
               <label>Status</label>
-              <select name="f_status" class="form-control">
+              <select name="f_status" class="form-control" onchange="this.form.submit()">
                 <option value="">All Status</option>
                 <?php foreach (PROJECT_STATUS_OPT as $k => $v): ?>
                 <option value="<?php echo $k; ?>" <?php echo ($f_status == $k) ? 'selected' : ''; ?>><?php echo $v; ?></option>
@@ -54,10 +54,10 @@
               </select>
             </div>
           </div>
-          <div class="col-md-3">
+          <div class="col-md-4">
             <div class="form-group">
               <label>Priority</label>
-              <select name="f_priority" class="form-control">
+              <select name="f_priority" class="form-control" onchange="this.form.submit()">
                 <option value="">All Priority</option>
                 <?php foreach (TASK_PRIORITY_OPT as $k => $v): ?>
                 <option value="<?php echo $k; ?>" <?php echo ($f_priority == $k) ? 'selected' : ''; ?>><?php echo $v; ?></option>
@@ -65,9 +65,7 @@
               </select>
             </div>
           </div>
-          <div class="col-md-2" style="padding-top:25px;">
-            <button type="submit" class="btn btn-primary btn-block"><i class="fa fa-search"></i> Search</button>
-          </div>
+
         </div>
       </form>
     </div>

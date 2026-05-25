@@ -7,13 +7,16 @@ $query_builder = TRUE;
 $db['default'] = array(
     'dsn'          => '',
     'hostname'     => 'localhost',
-    'username'     => 'root',
-    'password'     => '',
-    'database'     => 'task_manager_db',
+    'username'     => 'root', // development
+    'password'     => '', // development
+    'database'     => 'task_manager_db', // development
+    // 'username'     => 'u128207985_task_db', // production
+    // 'password'     => 'xD9$Ih2mzE&', // production
+    // 'database'     => 'u128207985_task_db', // production
     'dbdriver'     => 'mysqli',
     'dbprefix'     => '',
     'pconnect'     => FALSE,
-    'db_debug'     => (ENVIRONMENT !== 'production'),
+    'db_debug'     => (ENVIRONMENT !== 'development'),
     'cache_on'     => FALSE,
     'cachedir'     => '',
     'char_set'     => 'utf8',

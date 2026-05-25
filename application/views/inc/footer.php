@@ -504,7 +504,7 @@
   });
 </script>
 
-<?php if (isset($js) && !empty($js)) include_once('inc-js/' . $js); ?>
+<?php if (isset($js) && !empty($js)) include_once(VIEWPATH . 'inc/inc-js/' . $js); ?>
 
 </body>
 </html>

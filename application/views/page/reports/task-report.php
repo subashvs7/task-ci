@@ -44,7 +44,7 @@
             </select>
           </div></div>
           <div class="col-md-3" style="padding-top:25px;">
-            <button type="submit" class="btn btn-primary"><i class="fa fa-search"></i> View Overview</button>
+
               <button type="submit" name="export" value="excel" class="btn btn-success" title="Export Excel"><i class="fa fa-file-excel-o"></i> Excel</button>
             <a href="<?php echo site_url($s_url) ?>" class="btn btn-default">Reset</a>
           </div>

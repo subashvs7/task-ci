@@ -77,12 +77,7 @@ function format_hours($decimal_hours) {
           </div>
         </div>
 
-        <div class="row">
-          <div class="col-md-12 text-right">
-            <a href="<?php echo site_url($s_url) ?>" class="btn btn-default" style="margin-right: 5px;"><i class="fa fa-times"></i> Clear</a>
-            <button type="submit" class="btn btn-primary" style="background-color: #3498db; border-color: #2980b9; padding: 6px 20px;"><i class="fa fa-filter"></i> Apply Filter</button>
-          </div>
-        </div>
+
       </form>
     </div>
   </div>
