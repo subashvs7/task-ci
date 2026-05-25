@@ -96,7 +96,7 @@
           <tr><td colspan="6" class="text-center text-muted" style="padding:30px;">No users found.</td></tr>
           <?php else: ?>
           <?php foreach ($record_list as $j => $u):
-            $initials = strtoupper(implode('', array_map(function($w){ return $w[0]; }, array_slice(explode(' ', $u['name']), 0, 2))));
+            $initials = strtoupper(implode('', array_map(function($w){ return isset($w[0]) ? $w[0] : ''; }, array_slice(explode(' ', $u['name']), 0, 2))));
             $avatarClass = 'ua-' . ($u['role'] ?: 'default');
           ?>
           <tr>

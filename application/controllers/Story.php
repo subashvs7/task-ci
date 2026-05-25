@@ -24,8 +24,8 @@ class Story extends CI_Controller
 
         if ($this->input->post('mode') == 'Add') {
             $user_role = $this->session->userdata(SESS_HEAD . '_role');
-            if (!in_array($user_role, ['admin', 'manager', 'team_leader', 'staff'])) {
-                $this->session->set_flashdata('alert_error', 'You cannot create stories.');
+            if ($user_role !== 'staff') {
+                $this->session->set_flashdata('alert_error', 'Only staff can create user stories.');
                 redirect($data['s_url']);
             }
             $assignee_id = NULL;
@@ -99,11 +99,8 @@ class Story extends CI_Controller
         $role = $this->session->userdata(SESS_HEAD . '_role');
         $uid = $this->session->userdata(SESS_HEAD . '_user_id');
 
-        if ($role === 'staff') {
-            $where .= " AND (s.assignee_id = {$uid} OR s.story_id IN (SELECT story_id FROM tm_tasks WHERE assigned_to = {$uid} AND status_flag='Active'))";
-        } elseif ($role === 'team_leader') {
-            $where .= " AND (s.project_id IN (SELECT project_id FROM tm_project_handlers WHERE team_leader_id = {$uid} AND status='active') OR s.assignee_id = {$uid} OR s.story_id IN (SELECT story_id FROM tm_tasks WHERE assigned_to = {$uid} AND status_flag='Active'))";
-        }
+        // All roles can view all active user stories
+        // Role-based visibility restrictions have been removed
 
         if ($f_project) $where .= " AND s.project_id=" . (int)$f_project;
         if ($f_epic)    $where .= " AND s.epic_id=" . (int)$f_epic;

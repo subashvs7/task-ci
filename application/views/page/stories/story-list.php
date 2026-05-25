@@ -66,7 +66,9 @@ function format_hours($decimal_hours) {
     <div class="box-header with-border">
       <h3 class="box-title"><i class="fa fa-book"></i> User Story List</h3>
       <div class="box-tools pull-right">
+        <?php if ($this->session->userdata(SESS_HEAD . '_role') === 'staff'): ?>
         <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addStoryModal"><i class="fa fa-plus"></i> Add Story</button>
+        <?php endif; ?>
       </div>
     </div>
     <div class="box-body table-responsive no-padding">
