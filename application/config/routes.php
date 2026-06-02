@@ -22,8 +22,6 @@ $route['project-gantt']             = 'project/project_gantt';
 $route['get-gantt-data']            = 'project/get_gantt_data';
 $route['get-gantt-data/(:num)']     = 'project/get_gantt_data/$1';
 $route['project-detail/(:num)']     = 'project/project_detail/$1';
-$route['project-handle']            = 'ProjectHandle/index';
-$route['project-handle/(:num)']     = 'ProjectHandle/index/$1';
 
 // Tasks
 $route['task-list']                 = 'task/task_list';

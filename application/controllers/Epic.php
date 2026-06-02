@@ -240,7 +240,7 @@ class Epic extends CI_Controller
         $role = $this->session->userdata(SESS_HEAD . '_role');
         $uid = $this->session->userdata(SESS_HEAD . '_user_id');
         if ($role === 'team_leader') {
-            $data['projects_list'] = $this->db->query("SELECT p.project_id, p.name FROM tm_projects p JOIN tm_project_handlers h ON h.project_id = p.project_id WHERE p.status_flag='Active' AND h.team_leader_id=? AND h.status='active' ORDER BY p.name", array($uid))->result_array();
+            $data['projects_list'] = $this->db->query("SELECT p.project_id, p.name FROM tm_projects p WHERE p.status_flag='Active' AND (p.owner_id=? OR p.project_id IN (SELECT project_id FROM tm_project_members WHERE user_id=?)) ORDER BY p.name", array($uid, $uid))->result_array();
         } else {
             $data['projects_list'] = $this->db->query("SELECT project_id, name FROM tm_projects WHERE status_flag='Active' ORDER BY name")->result_array();
         }

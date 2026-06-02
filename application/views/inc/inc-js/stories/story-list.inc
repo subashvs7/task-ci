@@ -222,7 +222,7 @@ jQuery(function ($) {
                     data: { attachment_id: attachmentId },
                     success: function(res) {
                         if (res.success) {
-                            fetchProofs(activeProofTaskId); // refresh gallery
+                            location.reload();
                         } else {
                             Swal.fire('Error', res.message, 'error');
                         }
@@ -266,7 +266,7 @@ jQuery(function ($) {
             success: function(res) {
                 $('#proof-upload-progress').hide();
                 if (res.success) {
-                    fetchProofs(activeProofTaskId);
+                    location.reload();
                 } else {
                     Swal.fire('Upload Failed', res.message, 'error');
                 }

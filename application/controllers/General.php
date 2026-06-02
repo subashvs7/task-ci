@@ -76,7 +76,6 @@ class General extends CI_Controller
             'tm_epics'            => 'epic_id',
             'tm_user_stories'     => 'story_id',
             'tm_subtasks'         => 'subtask_id',
-            'tm_project_handlers' => 'handler_id',
         );
 
         if (!isset($allowed_tables[$tbl]) || $allowed_tables[$tbl] !== $col) {
@@ -433,20 +432,6 @@ class General extends CI_Controller
             'added_date'   => date('Y-m-d H:i:s'),
         ));
 
-        // Sync with tm_project_handlers if adding a team leader
-        if ($role === 'team_leader') {
-            $h_exists = $this->db->query("SELECT handler_id FROM tm_project_handlers WHERE project_id=? AND team_leader_id=?", array($project_id, $user_id))->row_array();
-            if ($h_exists) {
-                $this->db->where('handler_id', $h_exists['handler_id'])->update('tm_project_handlers', array('status' => 'active', 'updated_date' => date('Y-m-d H:i:s')));
-            } else {
-                $this->db->insert('tm_project_handlers', array(
-                    'project_id'     => $project_id,
-                    'team_leader_id' => $user_id,
-                    'status'         => 'active',
-                    'created_date'   => date('Y-m-d H:i:s')
-                ));
-            }
-        }
 
         $user = $this->db->query("SELECT name, email, role FROM tm_users WHERE user_id=?", array($user_id))->row_array();
         echo json_encode(array(
@@ -484,10 +469,6 @@ class General extends CI_Controller
 
         $this->db->where('member_id', $member_id)->delete('tm_project_members');
 
-        // Sync with tm_project_handlers
-        if ($member['project_role'] === 'team_leader') {
-            $this->db->where(array('project_id' => $member['project_id'], 'team_leader_id' => $member['user_id']))->update('tm_project_handlers', array('status' => 'inactive', 'updated_date' => date('Y-m-d H:i:s')));
-        }
 
         echo json_encode(array('success' => true, 'message' => 'Member removed.'));
     }

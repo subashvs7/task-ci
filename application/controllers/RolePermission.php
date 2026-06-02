@@ -34,8 +34,7 @@ class RolePermission extends CI_Controller
             'dashboard' => array('label' => 'Dashboard', 'desc' => 'View main system metrics, active tasks, and project stats summary.', 'sub' => array()),
             'projects'  => array('label' => 'Projects', 'desc' => 'Top-level menu access for Projects.', 'sub' => array(
                 'project_list'   => array('label' => 'Project List', 'desc' => 'Create, edit, view detail cards.'),
-                'project_kanban' => array('label' => 'Project Kanban', 'desc' => 'Visual board view for project tracking.'),
-                'project_handle' => array('label' => 'Project Handle', 'desc' => 'Assign/manage team leaders to projects.')
+                'project_kanban' => array('label' => 'Project Kanban', 'desc' => 'Visual board view for project tracking.')
             )),
             'tasks'     => array('label' => 'Tasks', 'desc' => 'Top-level menu access for Tasks.', 'sub' => array(
                 'task_list'   => array('label' => 'Task List', 'desc' => 'Manage, edit, status updates, time-logs.'),
@@ -98,7 +97,7 @@ class RolePermission extends CI_Controller
         // Validation
         $roles = array_keys(USER_ROLE_OPT);
         $modules = array(
-            'dashboard', 'projects', 'project_list', 'project_kanban', 'project_handle', 
+            'dashboard', 'projects', 'project_list', 'project_kanban', 
             'tasks', 'task_list', 'task_kanban', 'epics', 'stories', 'reports', 'users', 'add_user', 'role_permissions'
         );
 

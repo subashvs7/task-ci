@@ -32,11 +32,7 @@ $isAdmin = ($role === 'admin');
       <a href="<?php echo site_url('project-kanban') ?>"><i class="fa fa-columns"></i> Project Kanban</a>
     </li>
     <?php endif; ?>
-    <?php if (has_menu_permission('project_handle')): ?>
-    <li <?php if ($seg1 === 'project-handle') echo 'class="active"'; ?>>
-      <a href="<?php echo site_url('project-handle') ?>"><i class="fa fa-handshake-o"></i> Project Handle</a>
-    </li>
-    <?php endif; ?>
+
   </ul>
 </li>
 <?php endif; ?>

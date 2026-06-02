@@ -20,30 +20,13 @@ class Dashboard extends CI_Controller
         $uid  = $this->session->userdata(SESS_HEAD . '_user_id');
         $role = $this->session->userdata(SESS_HEAD . '_role');
 
-        if ($this->input->post('mode') == 'AddHandler') {
-            $ins = array(
-                'project_id'     => $this->input->post('project_id'),
-                'team_leader_id' => $this->input->post('team_leader_id'),
-                'due_date'       => $this->input->post('due_date'),
-                'notes'          => $this->input->post('notes'),
-                'status'         => $this->input->post('status') ?: 'active',
-                'status_flag'    => 'Active',
-                'created_by'     => $uid,
-                'created_date'   => date('Y-m-d H:i:s'),
-                'updated_by'     => $uid,
-                'updated_date'   => date('Y-m-d H:i:s'),
-            );
-            $this->db->insert('tm_project_handlers', $ins);
-            $this->session->set_flashdata('alert_success', 'Project assigned to Team Leader successfully.');
-            redirect('dash');
-        }
 
         $uid  = $this->session->userdata(SESS_HEAD . '_user_id');
         $role = $this->session->userdata(SESS_HEAD . '_role');
         // Auth string for projects without alias
         $proj_auth = "1=1";
         if ($role === 'team_leader' || $role === 'staff') {
-            $proj_auth = "(owner_id = {$uid} OR project_id IN (SELECT project_id FROM tm_project_handlers WHERE team_leader_id = {$uid} AND status='active') OR project_id IN (SELECT project_id FROM tm_project_members WHERE user_id = {$uid}) OR project_id IN (SELECT project_id FROM tm_tasks WHERE assigned_to = {$uid}))";
+            $proj_auth = "(owner_id = {$uid} OR project_id IN (SELECT project_id FROM tm_project_members WHERE user_id = {$uid}) OR project_id IN (SELECT project_id FROM tm_tasks WHERE assigned_to = {$uid}))";
         } else if ($role === 'manager') {
             $proj_auth = "owner_id = {$uid}";
         }
@@ -97,7 +80,7 @@ class Dashboard extends CI_Controller
         // Auth string for projects WITH 'p.' alias
         $p_auth = "1=1";
         if ($role === 'team_leader' || $role === 'staff') {
-            $p_auth = "(p.owner_id = {$uid} OR p.project_id IN (SELECT project_id FROM tm_project_handlers WHERE team_leader_id = {$uid} AND status='active') OR p.project_id IN (SELECT project_id FROM tm_project_members WHERE user_id = {$uid}) OR p.project_id IN (SELECT project_id FROM tm_tasks WHERE assigned_to = {$uid}))";
+            $p_auth = "(p.owner_id = {$uid} OR p.project_id IN (SELECT project_id FROM tm_project_members WHERE user_id = {$uid}) OR p.project_id IN (SELECT project_id FROM tm_tasks WHERE assigned_to = {$uid}))";
         } else if ($role === 'manager') {
             $p_auth = "p.owner_id = {$uid}";
         }
@@ -177,10 +160,10 @@ class Dashboard extends CI_Controller
             $data['admin_managers_count'] = (int)$r['cnt'];
         }
 
-        // Manager's own project count (projects where this manager is the owner/manager)
+        // Project owner/manager's own project count (projects where they are the owner)
         $data['manager_project_count'] = null;
         $data['manager_project_active'] = null;
-        if ($role === 'manager') {
+        if ($role === 'manager' || $role === 'team_leader') {
             $r = $this->db->query("SELECT COUNT(*) as cnt FROM tm_projects WHERE owner_id = ? AND status_flag = 'Active'", array($uid))->row_array();
             $data['manager_project_count'] = (int)$r['cnt'];
             $r2 = $this->db->query("SELECT COUNT(*) as cnt FROM tm_projects WHERE owner_id = ? AND status_flag = 'Active' AND status = 'active'", array($uid))->row_array();
@@ -190,24 +173,6 @@ class Dashboard extends CI_Controller
             $data['team_leaders_list'] = $this->db->query("SELECT user_id, name FROM tm_users WHERE role='team_leader' AND status='Active' ORDER BY name")->result_array();
         }
 
-        // Team Leader: projects assigned to this TL by a manager
-        $data['tl_assigned_projects'] = array();
-        if ($role === 'team_leader') {
-            $tl_proj_sql = "SELECT p.project_id, p.name AS project_name, p.status,
-                                   h.handler_id, h.due_date, h.status AS handler_status,
-                                   h.notes, h.created_date AS assigned_date,
-                                   cb.name AS manager_name, cb.email AS manager_email,
-                                   (SELECT COUNT(*) FROM tm_tasks WHERE project_id = p.project_id AND assigned_to = {$uid} AND status_flag='Active') AS task_count,
-                                   (SELECT COUNT(*) FROM tm_tasks WHERE project_id = p.project_id AND assigned_to = {$uid} AND status IN ('done','closed') AND status_flag='Active') AS done_count,
-                                   (SELECT COUNT(*) FROM tm_tasks WHERE project_id = p.project_id AND assigned_to = {$uid} AND due_date < CURDATE() AND status NOT IN ('done','closed') AND status_flag='Active') AS overdue_count
-                            FROM tm_project_handlers h
-                            JOIN tm_projects p  ON p.project_id = h.project_id
-                            JOIN tm_users    cb ON cb.user_id   = h.created_by
-                            WHERE h.team_leader_id = {$uid}
-                              AND h.status_flag = 'Active'
-                            ORDER BY h.due_date ASC";
-            $data['tl_assigned_projects'] = $this->db->query($tl_proj_sql)->result_array();
-        }
 
         $this->load->view('page/dashboard', $data);
     }

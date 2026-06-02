@@ -151,17 +151,7 @@ class Project extends CI_Controller
             $docs_json = $this->_handle_document_upload();
 
             $assignee_id = $this->input->post('owner_id');
-            $owner_id = $this->session->userdata(SESS_HEAD . '_user_id'); // default to admin
-            $team_leader_id = null;
-
-            if ($assignee_id) {
-                $assignee = $this->db->get_where('tm_users', ['user_id' => $assignee_id])->row_array();
-                if ($assignee && $assignee['role'] === 'manager') {
-                    $owner_id = $assignee_id;
-                } else if ($assignee && $assignee['role'] === 'team_leader') {
-                    $team_leader_id = $assignee_id;
-                }
-            }
+            $owner_id = $assignee_id ?: $this->session->userdata(SESS_HEAD . '_user_id');
 
             $ins = array(
                 'name'         => $this->input->post('name'),
@@ -185,15 +175,6 @@ class Project extends CI_Controller
             $this->db->insert('tm_projects', $ins);
             $new_project_id = $this->db->insert_id();
 
-            if ($team_leader_id) {
-                $this->db->insert('tm_project_handlers', [
-                    'project_id' => $new_project_id,
-                    'team_leader_id' => $team_leader_id,
-                    'assigned_by' => $this->session->userdata(SESS_HEAD . '_user_id'),
-                    'assigned_date' => date('Y-m-d H:i:s'),
-                    'status' => 'active'
-                ]);
-            }
 
             $this->session->set_flashdata('alert_success', 'Project created successfully.');
             redirect($data['s_url']);
@@ -208,17 +189,7 @@ class Project extends CI_Controller
             $docs_json = $this->_handle_document_upload($existing_docs_json);
 
             $assignee_id = $this->input->post('owner_id');
-            $owner_id = $this->session->userdata(SESS_HEAD . '_user_id'); // default to admin
-            $team_leader_id = null;
-
-            if ($assignee_id) {
-                $assignee = $this->db->get_where('tm_users', ['user_id' => $assignee_id])->row_array();
-                if ($assignee && $assignee['role'] === 'manager') {
-                    $owner_id = $assignee_id;
-                } else if ($assignee && $assignee['role'] === 'team_leader') {
-                    $team_leader_id = $assignee_id;
-                }
-            }
+            $owner_id = $assignee_id ?: $this->session->userdata(SESS_HEAD . '_user_id');
 
             $upd = array(
                 'name'         => $this->input->post('name'),
@@ -237,22 +208,6 @@ class Project extends CI_Controller
             $this->db->where('project_id', $project_id);
             $this->db->update('tm_projects', $upd);
 
-            // Reassign handlers if needed
-            $this->db->where('project_id', $project_id)->update('tm_project_handlers', ['status' => 'inactive']);
-            if ($team_leader_id) {
-                $exists = $this->db->get_where('tm_project_handlers', ['project_id' => $project_id, 'team_leader_id' => $team_leader_id])->row_array();
-                if (!$exists) {
-                    $this->db->insert('tm_project_handlers', [
-                        'project_id' => $project_id,
-                        'team_leader_id' => $team_leader_id,
-                        'assigned_by' => $this->session->userdata(SESS_HEAD . '_user_id'),
-                        'assigned_date' => date('Y-m-d H:i:s'),
-                        'status' => 'active'
-                    ]);
-                } else {
-                    $this->db->where('handler_id', $exists['handler_id'])->update('tm_project_handlers', ['status' => 'active']);
-                }
-            }
 
             $this->session->set_flashdata('alert_success', 'Project updated successfully.');
             redirect($data['s_url'] . '/' . $this->uri->segment(2, 0));
@@ -317,7 +272,7 @@ class Project extends CI_Controller
         
         $p_sql = "SELECT project_id, name FROM tm_projects WHERE status_flag = 'Active'";
         if ($role === 'team_leader' || $role === 'staff') {
-            $p_sql .= " AND (owner_id = {$uid} OR project_id IN (SELECT project_id FROM tm_project_handlers WHERE team_leader_id = {$uid} AND status='active') OR project_id IN (SELECT project_id FROM tm_project_members WHERE user_id = {$uid}) OR project_id IN (SELECT project_id FROM tm_tasks WHERE assigned_to = {$uid}))";
+            $p_sql .= " AND (owner_id = {$uid} OR project_id IN (SELECT project_id FROM tm_project_members WHERE user_id = {$uid}) OR project_id IN (SELECT project_id FROM tm_tasks WHERE assigned_to = {$uid}))";
         } else if ($role === 'manager') {
             $p_sql .= " AND owner_id = {$uid}";
         }

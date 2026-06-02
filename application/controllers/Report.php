@@ -169,11 +169,12 @@ class Report extends CI_Controller
             $data['team_leaders_list'] = $this->db->query("
                 SELECT DISTINCT u.user_id, u.name 
                 FROM tm_users u
-                LEFT JOIN tm_project_handlers h ON h.team_leader_id = u.user_id AND h.project_id = ? AND h.status='active' AND h.status_flag='Active'
+                LEFT JOIN tm_projects p ON p.owner_id = u.user_id AND p.project_id = ? AND p.status_flag='Active'
+                LEFT JOIN tm_project_members m ON m.user_id = u.user_id AND m.project_id = ?
                 WHERE u.role='team_leader' AND u.status='Active'
-                  AND (h.handler_id IS NOT NULL OR u.user_id IN (SELECT reporter_id FROM tm_tasks WHERE project_id = ? AND status_flag='Active') OR u.user_id IN (SELECT created_by FROM tm_tasks WHERE project_id = ? AND status_flag='Active'))
+                  AND (p.project_id IS NOT NULL OR m.member_id IS NOT NULL OR u.user_id IN (SELECT reporter_id FROM tm_tasks WHERE project_id = ? AND status_flag='Active') OR u.user_id IN (SELECT created_by FROM tm_tasks WHERE project_id = ? AND status_flag='Active'))
                 ORDER BY u.name
-            ", array($f_project, $f_project, $f_project))->result_array();
+            ", array($f_project, $f_project, $f_project, $f_project))->result_array();
 
             $data['staff_list'] = $this->db->query("
                 SELECT DISTINCT u.user_id, u.name 
