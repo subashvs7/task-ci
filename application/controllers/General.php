@@ -75,7 +75,6 @@ class General extends CI_Controller
             'tm_tasks'            => 'task_id',
             'tm_epics'            => 'epic_id',
             'tm_user_stories'     => 'story_id',
-            'tm_subtasks'         => 'subtask_id',
         );
 
         if (!isset($allowed_tables[$tbl]) || $allowed_tables[$tbl] !== $col) {
@@ -130,17 +129,6 @@ class General extends CI_Controller
         $this->_auth();
         header('Content-Type: application/json');
 
-        $subtask_id = (int)$this->input->post('subtask_id');
-        $is_done    = (int)$this->input->post('is_done');
-        $uid        = $this->_uid();
-
-        $this->db->where('subtask_id', $subtask_id);
-        $this->db->update('tm_subtasks', array(
-            'is_done'      => $is_done,
-            'updated_by'   => $uid,
-            'updated_date' => date('Y-m-d H:i:s'),
-        ));
-
         echo json_encode(array('success' => true));
     }
 
@@ -158,22 +146,7 @@ class General extends CI_Controller
         $ajax_action = $this->input->post('ajax_action');
 
         if ($ajax_action === 'add_subtask') {
-            $title = trim($this->input->post('title'));
-            if (!$title) {
-                echo json_encode(array('success' => false, 'message' => 'Sub-task title required.'));
-                return;
-            }
-            $this->db->insert('tm_subtasks', array(
-                'task_id'      => $task_id,
-                'title'        => $title,
-                'is_done'      => 0,
-                'status_flag'  => 'Active',
-                'created_by'   => $uid,
-                'created_date' => date('Y-m-d H:i:s'),
-                'updated_by'   => $uid,
-                'updated_date' => date('Y-m-d H:i:s'),
-            ));
-            echo json_encode(array('success' => true, 'message' => 'Sub-task added.'));
+            echo json_encode(array('success' => false, 'message' => 'Sub-tasks are disabled.'));
             return;
         }
 

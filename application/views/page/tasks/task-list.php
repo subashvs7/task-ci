@@ -153,7 +153,7 @@ function format_hours($decimal_hours) {
             $is_my_session     = $is_active_session && ((int)$t['active_session_user'] === $cur_uid);
             $is_done_closed    = in_array($t['status'], array('done','closed'));
             $can_toggle        = empty($t['story_id']); // Allow toggling if it's a standalone task (no user story)
-            $is_mine_task      = ($cur_role === 'staff') ? ((int)$t['assigned_to'] === $cur_uid) : true; // Changed to allow all users to start tasks assigned to them, admins can start any
+            $is_mine_task      = ((int)$t['assigned_to'] === $cur_uid);
             $row_style = '';
             if ($is_my_session)        $row_style = 'style="background:#f0fff4; border-left:3px solid #27ae60;"';
             elseif ($is_date_overdue)  $row_style = 'style="background:#fff8f8;"';

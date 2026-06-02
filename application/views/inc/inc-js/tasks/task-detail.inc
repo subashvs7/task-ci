@@ -54,54 +54,6 @@ jQuery(function ($) {
         });
     });
 
-    // ── Subtask checkbox toggle ────────────────────────────────────
-    $(document).on('change', '.subtask-check', function () {
-        $.ajax({
-            url: baseUrl + 'update-subtask-status',
-            type: 'post',
-            dataType: 'json',
-            data: { subtask_id: $(this).data('id'), is_done: this.checked ? 1 : 0 },
-            success: function (res) {
-                if (res.success) location.reload();
-            }
-        });
-    });
-
-    // ── Add sub-task ───────────────────────────────────────────────
-    $('#saveSubTask').on('click', function () {
-        var title = $('#subtask_title').val().trim();
-        if (!title) { alert('Title is required.'); return; }
-        $.ajax({
-            url: baseUrl + 'add-comment',
-            type: 'post',
-            dataType: 'json',
-            data: { ajax_action: 'add_subtask', task_id: taskId, title: title, assigned_to: $('#subtask_assigned').val() },
-            success: function (res) {
-                if (res.success) {
-                    $('#addSubTaskModal').modal('hide');
-                    location.reload();
-                } else {
-                    alert(res.message || 'Failed.');
-                }
-            },
-            error: function () { alert('Request failed.'); }
-        });
-    });
-
-    // ── Delete sub-task ────────────────────────────────────────────
-    $(document).on('click', '.del_subtask', function () {
-        if (!confirm('Delete this sub-task?')) return;
-        $.ajax({
-            url: baseUrl + 'delete-record',
-            type: 'post',
-            dataType: 'json',
-            data: { tbl: 'tm_subtasks', col: 'subtask_id', id: $(this).data('id') },
-            success: function (res) {
-                if (res.success) location.reload();
-                else alert(res.message);
-            }
-        });
-    });
 
     // ── Log time ───────────────────────────────────────────────────
     $('#saveTimeLog').on('click', function () {

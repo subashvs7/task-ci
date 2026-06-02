@@ -395,37 +395,6 @@ function format_hours($decimal_hours) {
                           <?php endforeach; ?>
                         <?php endif; ?>
 
-                        <!-- Render Checklist Subtasks of this Task -->
-                        <?php if (!empty($task['checklist'])): ?>
-                          <?php foreach ($task['checklist'] as $chk): ?>
-                            <tr style="background:#fafbfc;">
-                              <td></td>
-                              <td style="padding-left: 25px;">
-                                <i class="fa fa-angle-double-right text-muted" style="margin-right: 5px;"></i>
-                                <span class="text-muted"><?php echo htmlspecialchars($chk['title']); ?></span>
-                                <span class="label label-xs label-info" style="font-size: 8px; padding: 1px 3px; font-weight: normal; margin-left: 5px;">Checklist Item</span>
-                              </td>
-                              <td>
-                                <span class="badge <?php echo ($chk['status'] === 'done') ? 'badge-status-done' : 'badge-status-todo'; ?>" style="font-size: 10px;">
-                                  <?php echo ($chk['status'] === 'done') ? 'Done' : 'Todo'; ?>
-                                </span>
-                              </td>
-                              <td>-</td>
-                              <td>-</td>
-                              <td>-</td>
-                              <td>
-                                <?php if ($chk['status'] === 'done'): ?>
-                                  <span class="text-success"><i class="fa fa-check-square-o"></i> Done</span>
-                                <?php else: ?>
-                                  <span class="text-muted"><i class="fa fa-square-o"></i> Todo</span>
-                                <?php endif; ?>
-                              </td>
-                              <?php if ($has_actions_for_me): ?>
-                              <td></td>
-                              <?php endif; ?>
-                            </tr>
-                          <?php endforeach; ?>
-                        <?php endif; ?>
                       <?php endforeach; ?>
                     </tbody>
                   </table>

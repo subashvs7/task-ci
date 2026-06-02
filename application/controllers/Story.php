@@ -192,16 +192,6 @@ class Story extends CI_Controller
 
             // Fetch checklist subtasks (from tm_subtasks)
             $checklist_by_parent = [];
-            if (!empty($parent_ids)) {
-                $check_sql = "SELECT *, subtask_id as sub_task_id, IF(is_done=1,'done','todo') as status
-                              FROM tm_subtasks 
-                              WHERE task_id IN (" . implode(',', $parent_ids) . ") AND status_flag='Active'
-                              ORDER BY created_date ASC";
-                $check_res = $this->db->query($check_sql)->result_array();
-                foreach ($check_res as $chk) {
-                    $checklist_by_parent[$chk['task_id']][] = $chk;
-                }
-            }
 
             // Attach subtasks and checklists to each parent task
             foreach ($tasks as &$task) {

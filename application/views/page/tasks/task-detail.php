@@ -215,40 +215,6 @@ function format_hours($decimal_hours) {
       </div>
       <?php endif; ?>
 
-      <!-- Sub-tasks -->
-      <div class="box box-success">
-        <div class="box-header with-border">
-          <h3 class="box-title"><i class="fa fa-sitemap"></i> Sub-tasks <span class="badge bg-green"><?php echo count($sub_tasks); ?></span></h3>
-          <div class="box-tools pull-right">
-            <button class="btn btn-xs btn-success" data-toggle="modal" data-target="#addSubTaskModal"><i class="fa fa-plus"></i> Add</button>
-          </div>
-        </div>
-        <div class="box-body no-padding">
-          <?php if (empty($sub_tasks)): ?>
-            <p class="text-center text-muted" style="padding:15px;">No sub-tasks yet.</p>
-          <?php else: ?>
-          <table class="table table-condensed table-hover">
-            <tbody>
-              <?php foreach ($sub_tasks as $st): ?>
-              <tr>
-                <td style="width:30px;">
-                  <input type="checkbox" class="subtask-check" data-id="<?php echo $st['sub_task_id']; ?>" <?php echo ($st['status']=='done')?'checked':''; ?>>
-                </td>
-                <td style="<?php echo ($st['status']=='done')?'text-decoration:line-through; color:#aaa;':''; ?>">
-                  <?php echo htmlspecialchars($st['title']); ?>
-                </td>
-                <td style="width:120px;"><span class="badge badge-status-<?php echo $st['status']; ?>" style="font-size:10px;"><?php $sl=TASK_STATUS_OPT; echo isset($sl[$st['status']])?$sl[$st['status']]:$st['status']; ?></span></td>
-                <td style="width:100px; font-size:11px;"><?php echo htmlspecialchars($st['assignee_name'] ?: '-'); ?></td>
-                <td style="width:60px;">
-                  <button class="btn btn-xs btn-danger del_subtask" data-id="<?php echo $st['sub_task_id']; ?>"><i class="fa fa-trash"></i></button>
-                </td>
-              </tr>
-              <?php endforeach; ?>
-            </tbody>
-          </table>
-          <?php endif; ?>
-        </div>
-      </div>
 
       <!-- Dependencies -->
       <div class="box box-warning">
@@ -610,34 +576,6 @@ function format_hours($decimal_hours) {
   </div>
 </div>
 
-<!-- Add Sub-task Modal -->
-<div class="modal fade" id="addSubTaskModal" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header" style="background:#27ae60; color:#fff;">
-        <button type="button" class="close" data-dismiss="modal" style="color:#fff;">&times;</button>
-        <h4 class="modal-title"><i class="fa fa-plus"></i> Add Sub-task</h4>
-      </div>
-      <div class="modal-body">
-        <div class="form-group"><label>Title <span class="text-danger">*</span></label>
-          <input type="text" id="subtask_title" class="form-control" placeholder="Sub-task title" required>
-        </div>
-        <div class="form-group"><label>Assign To</label>
-          <select id="subtask_assigned" class="form-control select2">
-            <option value="">-- Unassigned --</option>
-            <?php foreach ($users_list as $u): ?>
-            <option value="<?php echo $u['user_id']; ?>"><?php echo htmlspecialchars($u['name']); ?></option>
-            <?php endforeach; ?>
-          </select>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
-        <button type="button" id="saveSubTask" class="btn btn-success"><i class="fa fa-save"></i> Add</button>
-      </div>
-    </div>
-  </div>
-</div>
 
 <!-- Add Dependency Modal -->
 <div class="modal fade" id="addDependencyModal" tabindex="-1">

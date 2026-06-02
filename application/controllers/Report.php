@@ -77,19 +77,7 @@ class Report extends CI_Controller
                 LEFT JOIN tm_users u ON u.user_id = t.assigned_to
                 LEFT JOIN tm_users ur ON ur.user_id = t.reporter_id
                 
-                UNION ALL
-                
-                SELECT 'Sub Task' as item_type, '' as task_type, st.title, p.name as project_name, COALESCE(t.title, '') as parent_name,
-                       COALESCE(u.name, '') as assignee_name, ur.name as reporter_name, IF(st.is_done=1, 'done', 'todo') as status, '' as priority,
-                       0 as estimated_hours, 0 as logged_hours, '' as due_date, st.created_date,
-                       t.project_id, t.assigned_to as assigned_to, st.status_flag, COALESCE(e.created_by, s.assignee_id, t.reporter_id) as reporter_id
-                FROM tm_subtasks st
-                JOIN tm_tasks t ON t.task_id = st.task_id
-                LEFT JOIN tm_projects p ON p.project_id = t.project_id
-                LEFT JOIN tm_user_stories s ON s.story_id = t.story_id
-                LEFT JOIN tm_epics e ON e.epic_id = t.epic_id
-                LEFT JOIN tm_users u ON u.user_id = t.assigned_to
-                LEFT JOIN tm_users ur ON ur.user_id = st.created_by
+
             ) as all_items
             WHERE status_flag='Active'
         ";
@@ -242,21 +230,7 @@ class Report extends CI_Controller
                 ORDER BY t.created_date ASC
             ", array($f_project))->result_array();
 
-            $subtasks = $this->db->query("
-                SELECT 'Sub Task' as item_type, st.subtask_id, st.task_id, st.title, t.title as parent_name,
-                       u.name as assignee_name, ur.name as reporter_name, IF(st.is_done=1, 'done', 'todo') as status, '' as priority,
-                       0 as estimated_hours, 0 as logged_hours, '' as due_date, st.created_date,
-                       t.project_id, t.assigned_to as assigned_to, COALESCE(e.created_by, s.assignee_id, t.reporter_id) as reporter_id,
-                       NULL as active_worker_name, NULL as work_session_status, NULL as open_session_start
-                FROM tm_subtasks st
-                JOIN tm_tasks t ON t.task_id = st.task_id
-                LEFT JOIN tm_user_stories s ON s.story_id = t.story_id
-                LEFT JOIN tm_epics e ON e.epic_id = t.epic_id
-                LEFT JOIN tm_users u ON u.user_id = t.assigned_to
-                LEFT JOIN tm_users ur ON ur.user_id = st.created_by
-                WHERE t.project_id = ? AND st.status_flag = 'Active'
-                ORDER BY st.created_date ASC
-            ", array($f_project))->result_array();
+            $subtasks = array();
 
             // Build structural maps
             $epic_map = array();

@@ -280,12 +280,9 @@ class Task extends CI_Controller
                     uw.name as active_worker_name, e.name as epic_name, e.estimated_time as epic_estimated_time,
                     FLOOR(IFNULL(t.estimated_hours, 0)) as estimate_hours,
                     ROUND((IFNULL(t.estimated_hours, 0) - FLOOR(IFNULL(t.estimated_hours, 0))) * 60) as estimate_minutes,
-                    (SELECT COUNT(*) FROM tm_subtasks WHERE task_id=t.task_id AND status_flag='Active') as subtask_count,
+                    0 as subtask_count,
                     (SELECT COUNT(*) FROM tm_comments WHERE task_id=t.task_id AND status_flag='Active') as comment_count,
-                    COALESCE(ROUND(
-                        (SELECT COUNT(*) FROM tm_subtasks WHERE task_id=t.task_id AND is_done=1 AND status_flag='Active') * 100.0 /
-                        NULLIF((SELECT COUNT(*) FROM tm_subtasks WHERE task_id=t.task_id AND status_flag='Active'), 0)
-                    ), 0) as completion_percentage,
+                    0 as completion_percentage,
                     (COALESCE((SELECT SUM(tl.hours) FROM tm_time_logs tl WHERE tl.task_id=t.task_id AND tl.status_flag='Active'), 0) +
                      COALESCE((SELECT SUM(tl.hours) FROM tm_time_logs tl JOIN tm_tasks child ON child.task_id = tl.task_id WHERE (child.parent_task_id = t.task_id OR (t.story_id IS NULL AND child.epic_id = t.epic_id AND child.story_id IS NOT NULL)) AND tl.status_flag='Active'), 0)) as logged_hours,
                     (SELECT started_at FROM tm_task_sessions WHERE task_id=t.task_id AND ended_at IS NULL AND status_flag='Active' LIMIT 1) as open_session_start,
@@ -334,10 +331,7 @@ class Task extends CI_Controller
                     ua.name as assignee_name, ur.name as reporter_name,
                     FLOOR(IFNULL(t.estimated_hours, 0)) as estimate_hours,
                     ROUND((IFNULL(t.estimated_hours, 0) - FLOOR(IFNULL(t.estimated_hours, 0))) * 60) as estimate_minutes,
-                    COALESCE(ROUND(
-                        (SELECT COUNT(*) FROM tm_subtasks WHERE task_id=t.task_id AND is_done=1 AND status_flag='Active') * 100.0 /
-                        NULLIF((SELECT COUNT(*) FROM tm_subtasks WHERE task_id=t.task_id AND status_flag='Active'), 0)
-                    ), 0) as completion_percentage,
+                    0 as completion_percentage,
                     (SELECT started_at FROM tm_task_sessions WHERE task_id=t.task_id AND ended_at IS NULL AND status_flag='Active' LIMIT 1) as open_session_start,
                     (SELECT SUM(hours) FROM tm_time_logs WHERE task_id=t.task_id AND status_flag='Active') as total_logged_hours
                 FROM tm_tasks t
@@ -351,11 +345,7 @@ class Task extends CI_Controller
         $data['task'] = $task;
 
         // Sub-tasks
-        $data['sub_tasks'] = $this->db->query(
-            "SELECT *, subtask_id as sub_task_id, IF(is_done=1,'done','todo') as status, NULL as assignee_name
-             FROM tm_subtasks WHERE task_id = ? AND status_flag = 'Active' ORDER BY created_date ASC",
-            array($task_id)
-        )->result_array();
+        $data['sub_tasks'] = array();
 
         // Comments
         $data['comments'] = $this->db->query(
@@ -457,10 +447,7 @@ class Task extends CI_Controller
                     ua.name as assignee_name, ur.name as reporter_name, e.estimated_time as epic_estimated_time,
                     FLOOR(IFNULL(t.estimated_hours, 0)) as estimate_hours,
                     ROUND((IFNULL(t.estimated_hours, 0) - FLOOR(IFNULL(t.estimated_hours, 0))) * 60) as estimate_minutes,
-                    COALESCE(ROUND(
-                        (SELECT COUNT(*) FROM tm_subtasks WHERE task_id=t.task_id AND is_done=1 AND status_flag='Active') * 100.0 /
-                        NULLIF((SELECT COUNT(*) FROM tm_subtasks WHERE task_id=t.task_id AND status_flag='Active'), 0)
-                    ), 0) as completion_percentage,
+                    0 as completion_percentage,
                     (SELECT started_at FROM tm_task_sessions WHERE task_id=t.task_id AND ended_at IS NULL AND status_flag='Active' LIMIT 1) as open_session_start,
                     (COALESCE((SELECT SUM(tl.hours) FROM tm_time_logs tl WHERE tl.task_id=t.task_id AND tl.status_flag='Active'), 0) +
                      COALESCE((SELECT SUM(tl.hours) FROM tm_time_logs tl JOIN tm_tasks child ON child.task_id = tl.task_id WHERE (child.parent_task_id = t.task_id OR (t.story_id IS NULL AND child.epic_id = t.epic_id AND child.story_id IS NOT NULL)) AND tl.status_flag='Active'), 0)) as total_logged_hours,
@@ -512,12 +499,9 @@ class Task extends CI_Controller
         if ($f_assigned) $where .= " AND t.assigned_to = " . (int)$f_assigned;
 
         $sql = "SELECT t.*, p.name as project_name, ua.name as assignee_name, ur.name as reporter_name,
-                    (SELECT COUNT(*) FROM tm_subtasks WHERE task_id=t.task_id AND status_flag='Active') as subtask_count,
+                    0 as subtask_count,
                     (SELECT COUNT(*) FROM tm_comments WHERE task_id=t.task_id AND status_flag='Active') as comment_count,
-                    COALESCE(ROUND(
-                        (SELECT COUNT(*) FROM tm_subtasks WHERE task_id=t.task_id AND is_done=1 AND status_flag='Active') * 100.0 /
-                        NULLIF((SELECT COUNT(*) FROM tm_subtasks WHERE task_id=t.task_id AND status_flag='Active'), 0)
-                    ), 0) as completion_percentage,
+                    0 as completion_percentage,
                     COALESCE((SELECT SUM(hours) FROM tm_time_logs WHERE task_id=t.task_id AND status_flag='Active'), 0) as logged_hours
                 FROM tm_tasks t
                 LEFT JOIN tm_projects p ON p.project_id = t.project_id
