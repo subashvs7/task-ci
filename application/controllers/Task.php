@@ -1066,4 +1066,45 @@ class Task extends CI_Controller
             echo json_encode(array('success' => false, 'message' => 'Failed to remove dependency.'));
         }
     }
+
+    private function _check_and_update_story_status($story_id)
+    {
+        if (!$story_id) return;
+        $story = $this->db->get_where('tm_user_stories', ['story_id' => $story_id])->row_array();
+        if (!$story) return;
+
+        $tasks = $this->db->get_where('tm_tasks', ['story_id' => $story_id, 'status_flag' => 'Active'])->result_array();
+        if (empty($tasks)) return;
+
+        $all_done = true;
+        $any_in_progress = false;
+
+        foreach ($tasks as $t) {
+            if (!in_array($t['status'], ['done', 'closed'])) {
+                $all_done = false;
+            }
+            if ($t['status'] === 'in_progress' || $t['work_session_status'] === 'active') {
+                $any_in_progress = true;
+            }
+        }
+
+        $new_status = $story['status'];
+        if ($all_done) {
+            $new_status = 'done';
+        } elseif ($any_in_progress) {
+            $new_status = 'in_progress';
+        }
+
+        if ($new_status !== $story['status']) {
+            $this->db->where('story_id', $story_id);
+            $this->db->update('tm_user_stories', ['status' => $new_status, 'updated_date' => date('Y-m-d H:i:s')]);
+            
+            // Auto update epic status if story is updated
+            if (!empty($story['epic_id'])) {
+                if ($new_status === 'in_progress') {
+                    $this->db->query("UPDATE tm_epics SET status = 'in_progress' WHERE epic_id = ? AND status = 'todo'", array($story['epic_id']));
+                }
+            }
+        }
+    }
 }
