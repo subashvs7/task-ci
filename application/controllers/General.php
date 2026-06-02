@@ -297,6 +297,31 @@ class General extends CI_Controller
     // Attachments
     // -------------------------------------------------------------------------
 
+    public function get_task_attachments()
+    {
+        $this->_auth();
+        header('Content-Type: application/json');
+
+        $task_id = (int)$this->input->get('task_id');
+        $uid = $this->_uid();
+
+        $atts = $this->db->query("
+            SELECT a.attachment_id, a.user_id, a.file_name, a.file_path, a.file_size, a.created_date, u.name as uploader_name 
+            FROM tm_attachments a
+            LEFT JOIN tm_users u ON u.user_id = a.user_id
+            WHERE a.task_id=? AND a.status_flag='Active'
+            ORDER BY a.created_date ASC
+        ", array($task_id))->result_array();
+
+        foreach ($atts as &$a) {
+            $a['url'] = base_url($a['file_path']);
+            $a['size'] = round($a['file_size'] / 1024, 1) . ' KB';
+            $a['date'] = date('d-M-Y H:i', strtotime($a['created_date']));
+        }
+
+        echo json_encode(array('success' => true, 'attachments' => $atts, 'current_user_id' => $uid));
+    }
+
     public function upload_attachment()
     {
         $this->_auth();
@@ -310,7 +335,7 @@ class General extends CI_Controller
 
         $config = array(
             'upload_path'   => $upload_path,
-            'allowed_types' => 'jpg|jpeg|png|gif|pdf|doc|docx|xls|xlsx|txt|zip|rar',
+            'allowed_types' => '*',
             'max_size'      => 10240,
             'encrypt_name'  => TRUE,
         );

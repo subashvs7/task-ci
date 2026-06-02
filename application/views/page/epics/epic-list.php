@@ -71,7 +71,7 @@ function format_hours($decimal_hours) {
     <div class="box-body table-responsive no-padding">
       <table class="table table-hover table-bordered">
         <thead>
-          <tr><th>#</th><th>Epic Name</th><th>Project</th><th>Status</th><th>Priority</th><th>Est. Time</th><th>Stories</th><th>Actions</th></tr>
+          <tr><th>#</th><th>Epic Name</th><th>Project</th><th>Document</th><th>Status / Priority</th><th>Est. Time</th><th>Stories</th><th>Actions</th></tr>
         </thead>
         <tbody>
           <?php if (empty($record_list)): ?>
@@ -93,17 +93,30 @@ function format_hours($decimal_hours) {
                 -
               <?php endif; ?>
             </td>
-            <td>
-              <?php $sc=array('open'=>'default','in_progress'=>'success','done'=>'success','closed'=>'danger'); ?>
-              <span class="label label-<?php echo isset($sc[$e['status']])?$sc[$e['status']]:'default'; ?>" style="<?php echo $e['status']=='in_progress' ? 'background-color:#10b981 !important;' : ''; ?>">
-                <?php echo $e['status'] === 'in_progress' ? 'Working' : ucfirst(str_replace('_',' ',$e['status'])); ?>
-              </span>
+            <td class="text-center">
+              <?php if (!empty($e['document']) && $e['document'] !== 'null' && $e['document'] !== '[]'): ?>
+                <button type="button" class="btn btn-xs btn-default btn-view-docs" data-docs="<?php echo htmlspecialchars($e['document'], ENT_QUOTES, 'UTF-8'); ?>" data-id="<?php echo $e['epic_id']; ?>" title="View Documents">
+                  <i class="fa fa-file-pdf-o text-danger"></i> Docs
+                </button>
+              <?php else: ?>
+                -
+              <?php endif; ?>
             </td>
-            <td><span class="badge badge-priority-<?php echo $e['priority']; ?>"><?php $pl=TASK_PRIORITY_OPT; echo isset($pl[$e['priority']])?$pl[$e['priority']]:$e['priority']; ?></span></td>
+            <td>
+              <div style="margin-bottom:5px;">
+                <?php $sc=array('open'=>'default','in_progress'=>'success','done'=>'success','closed'=>'danger'); ?>
+                <span class="label label-<?php echo isset($sc[$e['status']])?$sc[$e['status']]:'default'; ?>" style="<?php echo $e['status']=='in_progress' ? 'background-color:#10b981 !important;' : ''; ?>">
+                  <?php echo $e['status'] === 'in_progress' ? 'Working' : ucfirst(str_replace('_',' ',$e['status'])); ?>
+                </span>
+              </div>
+              <div>
+                <span class="badge badge-priority-<?php echo $e['priority']; ?>"><?php $pl=TASK_PRIORITY_OPT; echo isset($pl[$e['priority']])?$pl[$e['priority']]:$e['priority']; ?></span>
+              </div>
+            </td>
             <td><span class="badge bg-purple"><?php echo format_hours($e['estimated_time'] ? ($e['estimated_time']/60) : 0); ?></span></td>
             <td><?php echo $e['story_count']; ?> stories</td>
             <td>
-              <button class="btn btn-xs btn-warning btn-edit-epic"
+              <button type="button" class="btn btn-xs btn-warning btn-edit-epic"
                 data-id="<?php echo $e['epic_id']; ?>"
                 data-project="<?php echo $e['project_id']; ?>"
                 data-name="<?php echo htmlspecialchars($e['name'], ENT_QUOTES); ?>"
@@ -128,10 +141,10 @@ function format_hours($decimal_hours) {
 </section>
 
 <!-- Add Epic Modal -->
-<div class="modal fade" id="addEpicModal" tabindex="-1">
+<div class="modal fade" id="addEpicModal">
   <div class="modal-dialog">
     <div class="modal-content">
-      <form action="<?php echo site_url($s_url) ?>" method="post">
+      <form action="<?php echo site_url($s_url) ?>" method="post" enctype="multipart/form-data">
         <input type="hidden" name="mode" value="Add">
         <div class="modal-header" style="background:#9b59b6; color:#fff;">
           <button type="button" class="close" data-dismiss="modal" style="color:#fff;">&times;</button>
@@ -151,6 +164,9 @@ function format_hours($decimal_hours) {
           </div>
           <div class="form-group"><label>Description</label>
             <textarea name="description" class="form-control" rows="2"></textarea>
+          </div>
+          <div class="form-group"><label>Upload Document (PDF/Image)</label>
+            <input type="file" name="document" class="form-control" accept="application/pdf,image/*">
           </div>
           <div class="row">
             <div class="col-md-4">
@@ -200,10 +216,10 @@ function format_hours($decimal_hours) {
 </div>
 
 <!-- Edit Epic Modal -->
-<div class="modal fade" id="editEpicModal" tabindex="-1">
+<div class="modal fade" id="editEpicModal">
   <div class="modal-dialog">
     <div class="modal-content">
-      <form action="<?php echo site_url($s_url) ?>" method="post">
+      <form action="<?php echo site_url($s_url) ?>" method="post" enctype="multipart/form-data">
         <input type="hidden" name="mode" value="Edit">
         <input type="hidden" name="epic_id" id="edit_epic_id">
         <div class="modal-header" style="background:#e67e22; color:#fff;">
@@ -223,6 +239,10 @@ function format_hours($decimal_hours) {
           </div>
           <div class="form-group"><label>Description</label>
             <textarea name="description" id="edit_epic_desc" class="form-control" rows="2"></textarea>
+          </div>
+          <div class="form-group"><label>Upload Document (PDF/Image)</label>
+            <input type="file" name="document" class="form-control" accept="application/pdf,image/*">
+            <small class="text-muted">Uploading a new document will add a new version to the existing documents.</small>
           </div>
           <div class="row">
             <div class="col-md-4"><div class="form-group"><label>Status</label>

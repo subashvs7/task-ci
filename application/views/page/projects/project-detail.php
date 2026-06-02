@@ -126,7 +126,7 @@
             <div class="box-header with-border" style="padding: 10px;">
               <h3 class="box-title" style="font-size:13px; font-weight:600;"><i class="fa fa-pie-chart"></i> Tasks by Status</h3>
             </div>
-            <div class="box-body" style="height: 180px; display:flex; align-items:center; justify-content:center; padding: 10px;">
+            <div class="box-body" style="height: 180px; position:relative; padding: 10px;">
               <canvas id="statusChart"></canvas>
             </div>
           </div>
@@ -136,7 +136,7 @@
             <div class="box-header with-border" style="padding: 10px;">
               <h3 class="box-title" style="font-size:13px; font-weight:600;"><i class="fa fa-tasks"></i> Task Progress</h3>
             </div>
-            <div class="box-body" style="height: 180px; display:flex; align-items:center; justify-content:center; padding: 10px;">
+            <div class="box-body" style="height: 180px; position:relative; padding: 10px;">
               <canvas id="progressChart"></canvas>
             </div>
           </div>
@@ -146,7 +146,7 @@
             <div class="box-header with-border" style="padding: 10px;">
               <h3 class="box-title" style="font-size:13px; font-weight:600;"><i class="fa fa-exclamation-circle"></i> Tasks by Priority</h3>
             </div>
-            <div class="box-body" style="height: 180px; display:flex; align-items:center; justify-content:center; padding: 10px;">
+            <div class="box-body" style="height: 180px; position:relative; padding: 10px;">
               <canvas id="priorityChart"></canvas>
             </div>
           </div>
@@ -160,7 +160,7 @@
             <div class="box-header with-border" style="padding: 10px;">
               <h3 class="box-title" style="font-size:13px; font-weight:600;"><i class="fa fa-cubes"></i> Tasks by Type</h3>
             </div>
-            <div class="box-body" style="height: 180px; display:flex; align-items:center; justify-content:center; padding: 10px;">
+            <div class="box-body" style="height: 180px; position:relative; padding: 10px;">
               <canvas id="typeChart"></canvas>
             </div>
           </div>
@@ -170,7 +170,7 @@
             <div class="box-header with-border" style="padding: 10px;">
               <h3 class="box-title" style="font-size:13px; font-weight:600;"><i class="fa fa-users"></i> Tasks by Assignee</h3>
             </div>
-            <div class="box-body" style="height: 180px; display:flex; align-items:center; justify-content:center; padding: 10px;">
+            <div class="box-body" style="height: 180px; position:relative; padding: 10px;">
               <canvas id="assigneeChart"></canvas>
             </div>
           </div>
@@ -180,7 +180,7 @@
             <div class="box-header with-border" style="padding: 10px;">
               <h3 class="box-title" style="font-size:13px; font-weight:600;"><i class="fa fa-line-chart"></i> Time Logged (7 Days)</h3>
             </div>
-            <div class="box-body" style="height: 180px; display:flex; align-items:center; justify-content:center; padding: 10px;">
+            <div class="box-body" style="height: 180px; position:relative; padding: 10px;">
               <canvas id="timeLogChart"></canvas>
             </div>
           </div>
@@ -245,6 +245,7 @@
       <form action="<?php echo site_url('task-list') ?>" method="post">
         <input type="hidden" name="mode" value="Add">
         <input type="hidden" name="project_id" value="<?php echo $project['project_id']; ?>">
+        <input type="hidden" name="redirect_url" value="<?php echo current_url(); ?>">
         <div class="modal-header" style="background:#27ae60; color:#fff;">
           <button type="button" class="close" data-dismiss="modal" style="color:#fff;">&times;</button>
           <h4 class="modal-title"><i class="fa fa-plus"></i> Quick Add Task to <?php echo htmlspecialchars($project['name']); ?></h4>

@@ -91,13 +91,24 @@ function format_hours($decimal_hours) {
         <?php if ($ur !== 'staff'): ?>
         <a href="<?php echo site_url('task-kanban') ?>" class="btn btn-sm btn-default"><i class="fa fa-columns"></i> Kanban</a>
         <?php endif; ?>
-        <?php if ($ur !== 'admin' && $ur !== 'staff'): ?>
         <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addTaskModal">
           <i class="fa fa-plus"></i> Add Task
         </button>
-        <?php endif; ?>
       </div>
     </div>
+    <?php
+    $show_actions = false;
+    if (in_array($cur_role, ['admin', 'manager', 'team_leader'])) {
+        $show_actions = true;
+    } else if (!empty($record_list)) {
+        foreach ($record_list as $t) {
+            if ($t['created_by'] == $cur_uid) {
+                $show_actions = true;
+                break;
+            }
+        }
+    }
+    ?>
     <div class="box-body table-responsive no-padding">
       <table class="table table-hover table-bordered table-condensed">
         <thead>
@@ -105,6 +116,7 @@ function format_hours($decimal_hours) {
             <th>#</th>
             <th>Project</th>
             <th>Title</th>
+            <th>Document</th>
             <th>Epic</th>
             <th>Type</th>
             <th>Status</th>
@@ -115,14 +127,14 @@ function format_hours($decimal_hours) {
             <th>Due Date</th>
             <th>Est. Time</th>
             <th>Logged Time</th>
-            <?php if ($this->session->userdata(SESS_HEAD . '_role') !== 'staff'): ?>
+            <?php if ($show_actions): ?>
             <th style="width:90px;">Actions</th>
             <?php endif; ?>
           </tr>
         </thead>
         <tbody>
           <?php if (empty($record_list)): ?>
-          <tr><td colspan="<?php echo ($this->session->userdata(SESS_HEAD . '_role') === 'staff') ? '12' : '13'; ?>" class="text-center text-muted" style="padding:30px;">No tasks found.</td></tr>
+          <tr><td colspan="<?php echo $show_actions ? '15' : '14'; ?>" class="text-center text-muted" style="padding:30px;">No tasks found.</td></tr>
           <?php else: ?>
           <?php
           foreach ($record_list as $j => $t):
@@ -140,8 +152,8 @@ function format_hours($decimal_hours) {
             $is_effort_overdue = $estimated_h > 0 && $logged_h > $estimated_h;
             $is_my_session     = $is_active_session && ((int)$t['active_session_user'] === $cur_uid);
             $is_done_closed    = in_array($t['status'], array('done','closed'));
-            $can_toggle        = false; // Moved to User Stories sub-tasks
-            $is_mine_task      = ($cur_role === 'staff') ? ((int)$t['assigned_to'] === $cur_uid) : false;
+            $can_toggle        = empty($t['story_id']); // Allow toggling if it's a standalone task (no user story)
+            $is_mine_task      = ($cur_role === 'staff') ? ((int)$t['assigned_to'] === $cur_uid) : true; // Changed to allow all users to start tasks assigned to them, admins can start any
             $row_style = '';
             if ($is_my_session)        $row_style = 'style="background:#f0fff4; border-left:3px solid #27ae60;"';
             elseif ($is_date_overdue)  $row_style = 'style="background:#fff8f8;"';
@@ -165,6 +177,15 @@ function format_hours($decimal_hours) {
                 <small class="text-muted"><i class="fa fa-comments"></i> <?php echo $t['comment_count']; ?></small>
               <?php endif; ?>
               <?php if ($t['project_key']): ?><br><code style="font-size:10px;"><?php echo htmlspecialchars($t['project_key']); ?></code><?php endif; ?>
+            </td>
+            <td style="text-align:center;">
+              <?php if (!empty($t['document'])): ?>
+                <button type="button" class="btn btn-xs btn-default btn-preview-doc" data-document="<?php echo htmlspecialchars($t['document'], ENT_QUOTES); ?>" data-id="<?php echo $t['task_id']; ?>" title="View Document">
+                  <i class="fa fa-file-pdf-o text-danger"></i> Docs
+                </button>
+              <?php else: ?>
+                <span class="text-muted">-</span>
+              <?php endif; ?>
             </td>
             <td>
               <?php if (!empty($t['epic_name'])): ?>
@@ -191,6 +212,7 @@ function format_hours($decimal_hours) {
                   <i class="fa fa-stop-circle"></i> Stop Work
                 </button>
                 <br><span class="session-timer text-success" data-start-ts="<?php echo strtotime($t['open_session_start']); ?>" data-start="<?php echo htmlspecialchars($t['open_session_start']); ?>" style="font-size:11px; font-weight:700; font-family:monospace;">00:00:00</span>
+                <br><button class="btn btn-xs btn-primary btn-task-complete" data-task="<?php echo $t['task_id']; ?>" style="font-size:9px; margin-top:3px; padding:1px 5px;"><i class="fa fa-check"></i> Complete</button>
               <?php elseif ($is_active_session): ?>
                 <span style="color:#e67e22; font-size:11px; font-weight:600;">
                   <i class="fa fa-circle" style="color:#e67e22;"></i> Working
@@ -212,6 +234,7 @@ function format_hours($decimal_hours) {
                   style="font-size:10px; font-weight:600; padding:2px 7px;">
                   <i class="fa fa-play-circle"></i> Start Work
                 </button>
+                <br><button class="btn btn-xs btn-primary btn-task-complete" data-task="<?php echo $t['task_id']; ?>" style="font-size:9px; margin-top:3px; padding:1px 5px;"><i class="fa fa-check"></i> Complete</button>
               <?php else: ?>
                 <span class="text-muted" style="font-size:11px;"><i class="fa fa-circle-o"></i> Not Started</span>
               <?php endif; ?>
@@ -267,8 +290,9 @@ function format_hours($decimal_hours) {
             </td>
 
             <!-- Actions -->
-            <?php if ($cur_role !== 'staff'): ?>
+            <?php if ($show_actions): ?>
             <td style="white-space:nowrap;">
+              <?php if (in_array($cur_role, ['admin', 'manager', 'team_leader']) || $t['created_by'] == $cur_uid): ?>
               <button class="btn btn-xs btn-warning btn-edit-task"
                 data-id="<?php echo $t['task_id']; ?>"
                 data-project="<?php echo $t['project_id']; ?>"
@@ -284,11 +308,13 @@ function format_hours($decimal_hours) {
                 data-eh="<?php echo $t['estimate_hours']; ?>"
                 data-em="<?php echo $t['estimate_minutes']; ?>"
                 data-pct="<?php echo $t['completion_percentage']; ?>"
+                data-document="<?php echo htmlspecialchars($t['document'] ?? '', ENT_QUOTES); ?>"
                 title="Edit"><i class="fa fa-pencil"></i>
               </button>
               <button class="btn btn-xs btn-danger del_record" value="<?php echo $t['task_id']; ?>" data-tbl="tm_tasks" data-col="task_id" title="Delete">
                 <i class="fa fa-trash"></i>
               </button>
+              <?php endif; ?>
             </td>
             <?php endif; ?>
           </tr>
@@ -307,7 +333,7 @@ function format_hours($decimal_hours) {
 <div class="modal fade" id="addTaskModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form action="<?php echo site_url($s_url) ?>" method="post">
+      <form action="<?php echo site_url($s_url) ?>" method="post" enctype="multipart/form-data">
         <input type="hidden" name="mode" value="Add">
         <div class="modal-header" style="background:#27ae60; color:#fff;">
           <button type="button" class="close" data-dismiss="modal" style="color:#fff;">&times;</button>
@@ -393,8 +419,8 @@ function format_hours($decimal_hours) {
                   <?php 
                   $cur_role = $this->session->userdata(SESS_HEAD . '_role');
                   foreach ($users_list as $u): 
-                      if ($cur_role === 'manager' && $u['role'] !== 'team_leader') continue;
-                      if ($cur_role === 'team_leader' && $u['role'] !== 'staff') continue;
+                      if ($cur_role === 'manager' && $u['role'] !== 'team_leader' && $u['user_id'] != $cur_uid) continue;
+                      if ($cur_role === 'team_leader' && $u['role'] !== 'staff' && $u['user_id'] != $cur_uid) continue;
                   ?>
                   <option value="<?php echo $u['user_id']; ?>"><?php echo htmlspecialchars($u['name']); ?> (<?php echo ucfirst(str_replace('_', ' ', $u['role'])); ?>)</option>
                   <?php endforeach; ?>
@@ -417,6 +443,11 @@ function format_hours($decimal_hours) {
                 <input type="text" name="environment" class="form-control" placeholder="e.g. Production">
               </div>
             </div>
+            <div class="col-md-<?php echo in_array($cur_role, array('manager', 'team_leader')) ? '6' : '12'; ?>">
+              <div class="form-group"><label>Screenshot / Document</label>
+                <input type="file" name="document" class="form-control" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar">
+              </div>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -432,7 +463,7 @@ function format_hours($decimal_hours) {
 <div class="modal fade" id="editTaskModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form action="<?php echo site_url($s_url) ?>" method="post">
+      <form action="<?php echo site_url($s_url) ?>" method="post" enctype="multipart/form-data">
         <input type="hidden" name="mode" value="Edit">
         <input type="hidden" name="task_id" id="edit_task_id">
         <div class="modal-header" style="background:#e67e22; color:#fff;">
@@ -544,6 +575,14 @@ function format_hours($decimal_hours) {
             <div class="col-md-<?php echo in_array($cur_role, array('manager', 'team_leader')) ? '6' : '4'; ?>">
               <div class="form-group"><label>Completion %</label>
                 <input type="number" name="completion_percentage" id="edit_pct" class="form-control" min="0" max="100">
+              </div>
+            </div>
+            <div class="col-md-<?php echo in_array($cur_role, array('manager', 'team_leader')) ? '6' : '12'; ?>">
+              <div class="form-group"><label>Screenshot / Document</label>
+                <input type="file" name="document" class="form-control" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar">
+                <div id="edit_document_container" style="margin-top: 10px; display: none;">
+                  <button type="button" class="btn btn-sm btn-info" id="btn-view-document"><i class="fa fa-eye"></i> View Current Document</button>
+                </div>
               </div>
             </div>
           </div>

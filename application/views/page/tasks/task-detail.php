@@ -160,64 +160,57 @@ function format_hours($decimal_hours) {
           <?php endif; ?>
         </div>
       </div>      <?php if (empty($task['parent_task_id'])): ?>
-      <div class="box box-primary box-solid" style="border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: none; margin-bottom: 20px;">
-          <div class="box-header with-border" style="background: #2c3e50;">
-              <h3 class="box-title" style="font-weight: 600;"><i class="fa fa-sitemap"></i> Task Delegation Waterfall</h3>
+      <div class="box box-primary">
+          <div class="box-header with-border">
+              <h3 class="box-title"><i class="fa fa-sitemap"></i> Delegated Tasks</h3>
           </div>
-          <div class="box-body" style="background: #f8f9fa; padding: 25px;">
-              <div class="hierarchy-container">
-                  <!-- Parent Core Task Card -->
-                  <div class="hierarchy-parent-card">
-                      <span class="label label-primary" style="text-transform: uppercase; font-size: 9px; letter-spacing: 0.5px;">Parent Core Task</span>
-                      <h4 style="margin: 8px 0 5px; color: #2c3e50; font-weight: 700;"><?= htmlspecialchars($task['title']) ?></h4>
-                      <p style="margin: 0; font-size: 13px; color: #7f8c8d;">Owner (Lead): <strong><?= htmlspecialchars($task['assignee_name'] ?: 'Unassigned') ?></strong></p>
-                  </div>
-                  
-                  <div class="hierarchy-connector"><i class="fa fa-chevron-down text-muted"></i></div>
-                  
-                  <!-- Children Grid -->
-                  <div class="hierarchy-children-grid">
-                      <?php 
-                      $children = $this->db->query("
-                          SELECT t.*, u.name as assignee_name,
-                                 COALESCE((SELECT SUM(tl.hours) FROM tm_time_logs tl WHERE tl.task_id=t.task_id AND tl.status_flag='Active'), 0) as logged_hours,
-                                 (SELECT started_at FROM tm_task_sessions WHERE task_id=t.task_id AND ended_at IS NULL AND status_flag='Active' LIMIT 1) as open_session_start
-                          FROM tm_tasks t 
-                          LEFT JOIN tm_users u ON u.user_id = t.assigned_to 
-                          WHERE t.parent_task_id = ? AND t.status_flag='Active'
-                      ", array($task['task_id']))->result_array();
-                      
-                      if (!empty($children)): 
-                          foreach ($children as $c): 
-                              $status_class = ($c['status'] == 'done') ? 'success' : (($c['status'] == 'in_progress') ? 'warning' : 'default');
-                              $border_color = ($c['status'] == 'done') ? '#2ecc71' : (($c['status'] == 'in_progress') ? '#f1c40f' : '#95a5a6');
-                              $is_active = ($c['work_session_status'] === 'active');
-                      ?>
-                          <div class="hierarchy-child-card" onclick="window.location.href='<?= site_url('task-detail/' . $c['task_id']) ?>';" style="border-left: 4px solid <?= $border_color ?>; cursor: pointer; display: flex; flex-direction: column;">
-                              <h5 style="font-weight: 700; margin: 0 0 6px; color: #34495e; transition: color 0.2s;"><?= htmlspecialchars($c['title']) ?></h5>
-                              <p style="margin: 0 0 10px; font-size: 12px; color: #7f8c8d;">Staff: <strong><?= htmlspecialchars($c['assignee_name'] ?: 'Unassigned') ?></strong></p>
-                              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto;">
-                                  <span class="label label-<?= $status_class ?>" style="text-transform: uppercase; font-size: 9px;"><?= strtoupper($c['status']) ?></span>
-                                  <div style="font-size: 11px; font-weight: 600; color: #555;">
-                                      <?php if ($is_active): ?>
-                                          <i class="fa fa-circle" style="color: #e67e22; animation: blinker 1.5s linear infinite;"></i>
-                                          <span class="session-timer text-warning" data-start-ts="<?= strtotime($c['open_session_start']) ?>" data-start="<?= htmlspecialchars($c['open_session_start']) ?>">00:00:00</span>
-                                      <?php else: ?>
-                                          <i class="fa fa-clock-o"></i> <?= round((float)$c['logged_hours'], 2) ?>h
-                                      <?php endif; ?>
-                                  </div>
-                              </div>
-                          </div>
-                      <?php 
-                          endforeach; 
-                      else: 
-                      ?>
-                          <div class="col-md-12 text-center" style="grid-column: 1 / -1; padding: 20px;">
-                              <p class="text-muted" style="margin:0;"><i class="fa fa-info-circle"></i> No delegated tasks assigned to staff yet.</p>
-                          </div>
-                      <?php endif; ?>
-                  </div>
+          <div class="box-body no-padding">
+              <?php 
+              $children = $this->db->query("
+                  SELECT t.*, u.name as assignee_name,
+                         COALESCE((SELECT SUM(tl.hours) FROM tm_time_logs tl WHERE tl.task_id=t.task_id AND tl.status_flag='Active'), 0) as logged_hours,
+                         (SELECT started_at FROM tm_task_sessions WHERE task_id=t.task_id AND ended_at IS NULL AND status_flag='Active' LIMIT 1) as open_session_start
+                  FROM tm_tasks t 
+                  LEFT JOIN tm_users u ON u.user_id = t.assigned_to 
+                  WHERE t.parent_task_id = ? AND t.status_flag='Active'
+              ", array($task['task_id']))->result_array();
+              
+              if (!empty($children)): 
+              ?>
+              <div class="table-responsive">
+                <table class="table table-hover table-striped" style="margin-bottom:0;">
+                    <thead>
+                        <tr>
+                            <th>Task Name</th>
+                            <th>Assignee</th>
+                            <th>Status</th>
+                            <th>Time Logged / Working</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($children as $c): 
+                            $is_active = ($c['work_session_status'] === 'active');
+                        ?>
+                        <tr>
+                            <td><a href="<?= site_url('task-detail/' . $c['task_id']) ?>"><?= htmlspecialchars($c['title']) ?></a></td>
+                            <td><?= htmlspecialchars($c['assignee_name'] ?: 'Unassigned') ?></td>
+                            <td><span class="badge badge-status-<?= $c['status'] ?>" style="font-size:11px;"><?php $sl=TASK_STATUS_OPT; echo isset($sl[$c['status']])?$sl[$c['status']]:$c['status']; ?></span></td>
+                            <td>
+                                <?php if ($is_active): ?>
+                                    <span class="label label-warning" style="animation: blinker 1.5s linear infinite;"><i class="fa fa-circle"></i> Working Now</span>
+                                    <span class="session-timer text-warning" data-start-ts="<?= strtotime($c['open_session_start']) ?>" data-start="<?= htmlspecialchars($c['open_session_start']) ?>" style="font-weight:bold; margin-left:5px;">00:00:00</span>
+                                <?php else: ?>
+                                    <span class="text-muted"><i class="fa fa-clock-o"></i> <?= round((float)$c['logged_hours'], 2) ?> hours logged</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
               </div>
+              <?php else: ?>
+                  <p class="text-center text-muted" style="padding: 15px; margin: 0;"><i class="fa fa-info-circle"></i> No delegated tasks assigned.</p>
+              <?php endif; ?>
           </div>
       </div>
       <?php endif; ?>
@@ -357,7 +350,7 @@ function format_hours($decimal_hours) {
           <?php else: ?>
             <?php foreach ($attachments as $a): ?>
             <div class="attachment-item">
-              <a href="<?php echo base_url('uploads/tasks/' . $a['name']); ?>" target="_blank" title="<?php echo htmlspecialchars($a['original_name']); ?>">
+              <a href="javascript:void(0);" class="btn-preview-attachment" data-file="<?php echo base_url('uploads/tasks/' . $a['name']); ?>" title="<?php echo htmlspecialchars($a['original_name']); ?>">
                 <i class="fa fa-file"></i> <?php echo htmlspecialchars(mb_substr($a['original_name'], 0, 25)); ?>
               </a>
               <small class="text-muted"> (<?php echo round($a['file_size'] / 1024); ?>KB)</small>
@@ -502,6 +495,7 @@ function format_hours($decimal_hours) {
       <form action="<?php echo site_url('task-list') ?>" method="post">
         <input type="hidden" name="mode" value="Edit">
         <input type="hidden" name="task_id" value="<?php echo $task['task_id']; ?>">
+        <input type="hidden" name="redirect_url" value="<?php echo current_url(); ?>">
         <div class="modal-header" style="background:#e67e22; color:#fff;">
           <button type="button" class="close" data-dismiss="modal" style="color:#fff;">&times;</button>
           <h4 class="modal-title"><i class="fa fa-pencil"></i> Edit Task</h4>

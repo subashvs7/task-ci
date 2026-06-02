@@ -37,77 +37,85 @@ defined('BASEPATH') OR exit('No direct script access allowed');
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
-      color: #1e1b4b !important;
+      color: #ffffff !important;
       font-weight: bold;
       font-size: 20px;
       letter-spacing: 0.5px;
     }
 
-    /* Top Bar - Header & Navbar Gradient */
+    /* Top Bar - Header & Navbar Gradient (Deep Navy to Deep Purple-Indigo) */
     .skin-blue .main-header .navbar {
-      background: linear-gradient(to left, #E8DBFC, #E0ECFF, #FFFFFF) !important;
+      background: linear-gradient(90deg, #091026 0%, #161138 50%, #201247 100%) !important;
       border: none !important;
-      border-bottom: 1px solid #e2e8f0 !important;
-      box-shadow: 0 2px 10px rgba(124, 58, 237, 0.05) !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
       height: 50px !important;
       min-height: 50px !important;
     }
+    
     .skin-blue .main-header .logo {
-      background-color: #ffffff !important;
-      color: #1e1b4b !important;
-      border-right: 1px solid #f1f5f9 !important;
-      border-bottom: 1px solid #e2e8f0 !important;
+      background: linear-gradient(135deg, #ffffff 0%, #e0ecff 50%, #fbe8ff 100%) !important;
+      color: #0f2c6c !important;
+      border-right: 1px solid rgba(0, 0, 0, 0.08) !important;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
       height: 50px;
       transition: background-color 0.3s ease;
     }
     .skin-blue .main-header .logo:hover {
-      background-color: #fafafc !important;
+      background: linear-gradient(135deg, #f8fafc 0%, #dbeafe 50%, #fae8ff 100%) !important;
     }
+    
+    /* Enhancing Logo legibility on Dark Backgrounds */
+    .main-header .logo img {
+      filter: none !important;
+    }
+    
     .skin-blue .main-header .navbar .sidebar-toggle {
-      color: #475569 !important;
+      color: #cbd5e1 !important;
       transition: background-color 0.3s ease;
     }
     .skin-blue .main-header .navbar .sidebar-toggle:hover {
-      background-color: rgba(124, 58, 237, 0.08) !important;
+      background-color: rgba(255, 255, 255, 0.08) !important;
+      color: #ffffff !important;
     }
 
     /* Navbar User Menu styling */
     .skin-blue .main-header .navbar .nav > li > a {
-      color: #475569 !important;
+      color: #cbd5e1 !important;
       transition: background-color 0.3s ease;
     }
     .skin-blue .main-header .navbar .nav > li > a:hover,
     .skin-blue .main-header .navbar .nav > li > a:active,
     .skin-blue .main-header .navbar .nav > li > a:focus,
     .skin-blue .main-header .navbar .nav > li.open > a {
-      background-color: rgba(124, 58, 237, 0.08) !important;
-      color: #7c3aed !important;
+      background-color: rgba(255, 255, 255, 0.08) !important;
+      color: #ffffff !important;
     }
 
     /* Dropdown Menus */
     .skin-blue .main-header .navbar .dropdown-menu {
-      border: 1px solid #e2e8f0 !important;
+      border: 1px solid rgba(255, 255, 255, 0.1) !important;
       border-radius: 12px !important;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08) !important;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25) !important;
       overflow: hidden;
       padding: 0;
     }
     .skin-blue .main-header .navbar .dropdown-menu li.user-header {
-      background: linear-gradient(to left, #E8DBFC, #E0ECFF, #FFFFFF) !important;
+      background: linear-gradient(135deg, #091026 0%, #1e1145 100%) !important;
       height: auto !important;
       padding: 24px 20px !important;
-      border-bottom: 1px solid #e2e8f0 !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
     }
     .skin-blue .main-header .navbar .dropdown-menu li.user-header p {
-      color: #1e1b4b !important;
+      color: #ffffff !important;
       font-weight: 600;
       font-size: 15px;
     }
     .skin-blue .main-header .navbar .dropdown-menu li.user-header small {
-      color: #64748b !important;
+      color: #cbd5e1 !important;
     }
     .skin-blue .main-header .navbar .dropdown-menu li.user-header img {
-      border: 3px solid rgba(124, 58, 237, 0.15) !important;
+      border: 3px solid rgba(124, 58, 237, 0.3) !important;
     }
     .skin-blue .main-header .navbar .dropdown-menu li.user-footer {
       background-color: #ffffff !important;
@@ -128,11 +136,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
       color: #1e293b !important;
     }
 
-    /* Main Sidebar Light Theme styling */
+    /* Main Sidebar Dark Theme styling (Vertical gradient) */
     .skin-blue .main-sidebar, .skin-blue .left-side {
-      background: linear-gradient(to left, #E8DBFC, #E0ECFF, #FFFFFF) !important;
-      border-right: 1px solid #e2e8f0 !important;
-      box-shadow: 4px 0 20px rgba(0, 0, 0, 0.01) !important;
+      background: linear-gradient(180deg, #091026 0%, #0c0b17 100%) !important;
+      border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+      box-shadow: 4px 0 20px rgba(0, 0, 0, 0.25) !important;
     }
     .skin-blue .sidebar {
       padding: 0 !important;
@@ -141,17 +149,17 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     /* Sidebar User Panel */
     .skin-blue .user-panel {
       padding: 20px 15px !important;
-      border-bottom: 1px solid rgba(124, 58, 237, 0.1) !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
       background: transparent !important;
     }
     .skin-blue .user-panel > .info > p {
-      color: #1e293b !important;
+      color: #ffffff !important;
       font-weight: 600;
       font-size: 14px;
       margin-bottom: 4px;
     }
     .skin-blue .user-panel > .info > p > i {
-      color: #64748b !important;
+      color: #cbd5e1 !important;
       font-weight: 500;
       font-size: 11px;
     }
@@ -163,7 +171,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
     /* Sidebar Navigation Headers */
     .skin-blue .sidebar-menu > li.header {
-      color: #94a3b8 !important;
+      color: #818cf8 !important;
       background: transparent !important;
       font-weight: 700;
       font-size: 11px;
@@ -174,7 +182,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     /* Sidebar Menu items */
     .skin-blue .sidebar-menu > li > a {
       border-left: 3px solid transparent !important;
-      color: #475569 !important;
+      color: #cbd5e1 !important;
       font-weight: 500;
       font-size: 14px;
       padding: 12px 20px 12px 22px !important;
@@ -184,32 +192,36 @@ defined('BASEPATH') OR exit('No direct script access allowed');
       width: 20px;
       font-size: 15px;
       margin-right: 8px;
-      color: #64748b !important;
+      color: #94a3b8 !important;
       transition: color 0.3s ease;
     }
 
-    /* Hover & Active States */
-    .skin-blue .sidebar-menu > li:hover > a,
-    .skin-blue .sidebar-menu > li.active > a {
-      color: #7c3aed !important;
-      background: rgba(255, 255, 255, 0.6) !important;
+    /* Hover & Active States with White Background (Opposite Set) and Left Borders */
+    .skin-blue .sidebar-menu > li:hover > a {
+      color: #091026 !important;
+      background: rgba(255, 255, 255, 0.95) !important;
+      border-left: 4px solid #2563eb !important;
     }
-    .skin-blue .sidebar-menu > li:hover > a > i,
+    .skin-blue .sidebar-menu > li:hover > a > i {
+      color: #2563eb !important;
+    }
+    .skin-blue .sidebar-menu > li.active > a {
+      color: #091026 !important;
+      background: #ffffff !important;
+      border-left: 4px solid #7c3aed !important;
+      font-weight: 600;
+    }
     .skin-blue .sidebar-menu > li.active > a > i {
       color: #7c3aed !important;
     }
-    .skin-blue .sidebar-menu > li.active > a {
-      border-left-color: #7c3aed !important;
-      font-weight: 600;
-    }
 
-    /* Treeview Menus */
+    /* Treeview Menus active/open */
     .skin-blue .sidebar-menu > li.treeview.active > a,
     .skin-blue .sidebar-menu > li.treeview.menu-open > a,
     .skin-blue .sidebar-menu > li.menu-open > a {
-      border-left-color: #7c3aed !important;
-      background: rgba(255, 255, 255, 0.6) !important;
-      color: #7c3aed !important;
+      border-left: 4px solid #7c3aed !important;
+      background: #ffffff !important;
+      color: #091026 !important;
     }
     .skin-blue .sidebar-menu > li.treeview.active > a > i,
     .skin-blue .sidebar-menu > li.treeview.menu-open > a > i,
@@ -217,24 +229,24 @@ defined('BASEPATH') OR exit('No direct script access allowed');
       color: #7c3aed !important;
     }
     .skin-blue .sidebar-menu .treeview-menu {
-      background: rgba(255, 255, 255, 0.4) !important;
+      background: #050814 !important;
       padding-left: 10px !important;
       padding-bottom: 5px !important;
     }
     
     /* Collapsed Sidebar Popover Styling */
     .skin-blue.sidebar-collapse .sidebar-menu > li:hover > .treeview-menu {
-      background-color: #ffffff !important;
-      border: 1px solid #e2e8f0 !important;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08) !important;
+      background-color: #091026 !important;
+      border: 1px solid rgba(255, 255, 255, 0.08) !important;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4) !important;
     }
     .skin-blue.sidebar-collapse .sidebar-menu > li:hover > a > span {
-      background-color: #f5f3ff !important;
-      color: #7c3aed !important;
-      border: 1px solid #e2e8f0 !important;
+      background-color: #091026 !important;
+      color: #ffffff !important;
+      border: 1px solid rgba(255, 255, 255, 0.08) !important;
     }
     .skin-blue .sidebar-menu .treeview-menu > li > a {
-      color: #64748b !important;
+      color: #cbd5e1 !important;
       font-size: 13px;
       padding: 8px 15px 8px 25px !important;
       transition: all 0.3s ease;
@@ -246,12 +258,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     }
     .skin-blue .sidebar-menu .treeview-menu > li:hover > a,
     .skin-blue .sidebar-menu .treeview-menu > li.active > a {
-      color: #7c3aed !important;
+      color: #ffffff !important;
       background: transparent !important;
     }
     .skin-blue .sidebar-menu .treeview-menu > li:hover > a > i,
     .skin-blue .sidebar-menu .treeview-menu > li.active > a > i {
-      color: #7c3aed !important;
+      color: #a78bfa !important;
     }
 
     /* Badges */
@@ -273,7 +285,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
         display: flex !important;
         align-items: center;
         justify-content: center;
-        border-bottom: 1px solid #e2e8f0 !important;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
       }
       .main-sidebar {
         padding-top: 110px !important;
@@ -298,7 +310,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     .logo-text-sub {
       font-size: 13px !important;
       font-weight: 700 !important;
-      color: #6366f1 !important;
+      color: #0f2c6c !important;
       text-transform: uppercase !important;
       letter-spacing: 1px !important;
       line-height: 1.2 !important;
@@ -409,7 +421,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
       width: 32px !important;
       height: 32px !important;
       border-radius: 50% !important;
-      border: 1.5px solid rgba(124, 58, 237, 0.15) !important;
+      border: 1.5px solid rgba(255, 255, 255, 0.2) !important;
     }
     .user-details-nav {
       display: flex !important;
@@ -420,12 +432,12 @@ defined('BASEPATH') OR exit('No direct script access allowed');
     .user-name-nav {
       font-weight: 600 !important;
       font-size: 13px !important;
-      color: #1e293b !important;
+      color: #ffffff !important;
       display: block !important;
     }
     .user-role-nav {
       font-size: 10px !important;
-      color: #64748b !important;
+      color: #cbd5e1 !important;
       font-weight: 500 !important;
       display: block !important;
     }
@@ -450,7 +462,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 <div class="wrapper">
 
   <header class="main-header">
-    <a href="<?php echo site_url('dash'); ?>" class="logo bg-white">
+    <a href="<?php echo site_url('dash'); ?>" class="logo">
       <span class="logo-mini">
         <img src="<?php echo base_url('asset/frontend/img/zazutask_login.png') ?>" alt="Mini">
       </span>

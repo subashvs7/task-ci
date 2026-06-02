@@ -5,6 +5,9 @@ class User extends CI_Controller
     {
         if (!$this->session->userdata(SESS_HEAD . '_logged_in'))
             redirect('login');
+
+        $this->output->set_header("Cache-Control: no-store, no-cache, must-revalidate, no-transform, max-age=0, post-check=0, pre-check=0");
+        $this->output->set_header("Pragma: no-cache");
     }
 
     private function _admin_only()

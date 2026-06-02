@@ -90,7 +90,7 @@ $isAdmin = ($role === 'admin');
 </li>
 <?php endif; ?>
 
-<?php if (has_menu_permission('users') || has_menu_permission('add_user') || has_menu_permission('role_permissions')): ?>
+<?php if (has_menu_permission('users') || has_menu_permission('role_permissions')): ?>
 <!-- Administration -->
 <li class="header">ADMINISTRATION</li>
 <?php if (has_menu_permission('users')): ?>
@@ -101,13 +101,6 @@ $isAdmin = ($role === 'admin');
     $ucount = $this->db->query("SELECT COUNT(*) as c FROM tm_users WHERE status='Active'")->row_array();
     ?>
     <span class="pull-right-container"><span class="label label-primary pull-right"><?php echo (int)$ucount['c']; ?></span></span>
-  </a>
-</li>
-<?php endif; ?>
-<?php if (has_menu_permission('add_user')): ?>
-<li <?php if ($this->input->get('action') === 'add' && $seg1 === 'user-list') echo 'class="active"'; ?>>
-  <a href="<?php echo site_url('user-list') ?>?action=add">
-    <i class="fa fa-user-plus"></i> <span>Add New User</span>
   </a>
 </li>
 <?php endif; ?>

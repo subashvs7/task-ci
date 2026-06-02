@@ -179,6 +179,53 @@ jQuery(function ($) {
             }
         });
     });
+
+    // ── Preview Attachment ─────────────────────────────────────────
+    $(document).on('click', '.btn-preview-attachment', function () {
+        var fileUrl = $(this).data('file');
+        if (!fileUrl) return;
+        
+        var ext = fileUrl.split('.').pop().toLowerCase();
+        
+        if(['jpg','jpeg','png','gif'].indexOf(ext) > -1) {
+            var showViewerAttach = function() {
+                var $img = $('<img src="' + fileUrl + '" style="display:none;">').appendTo('body');
+                var viewer = new Viewer($img[0], {
+                    hidden: function () {
+                        viewer.destroy();
+                        $img.remove();
+                    },
+                    toolbar: true, zoomable: true, rotatable: true, scalable: true, transition: true, fullscreen: true, keyboard: true
+                });
+                viewer.show();
+            };
+            if (typeof Viewer !== 'undefined') {
+                showViewerAttach();
+            } else {
+                $.getScript('https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.3/viewer.min.js', function() {
+                    $('<link/>', { rel: 'stylesheet', type: 'text/css', href: 'https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.3/viewer.min.css' }).appendTo('head');
+                    showViewerAttach();
+                });
+            }
+        } else if (['pdf', 'txt'].indexOf(ext) > -1) {
+            var showViewerDetailPDF = function() {
+                var $overlay = $('<div style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:999999; display:flex; flex-direction:column;"></div>');
+                var $header = $('<div style="padding:10px 20px; text-align:right;"><button style="background:transparent; border:none; color:#fff; font-size:35px; cursor:pointer; line-height:1;" title="Close (Esc)">&times;</button></div>');
+                var $iframe = $('<iframe src="' + fileUrl + '" style="flex-grow:1; width:100%; border:none;"></iframe>');
+                $overlay.append($header).append($iframe);
+                $('body').append($overlay);
+                
+                var closePdf = function() { $overlay.fadeOut(200, function() { $(this).remove(); $(document).off('keydown.pdf'); }); };
+                $header.find('button').on('click', closePdf);
+                $(document).on('keydown.pdf', function(e) { if (e.key === 'Escape') closePdf(); });
+                $overlay.hide().fadeIn(200);
+            };
+            showViewerDetailPDF();
+        } else {
+            window.open(fileUrl, '_blank');
+        }
+    });
+
     // ── Add Dependency ──────────────────────────────────────────
     $('#addDependencyForm').on('submit', function (e) {
         e.preventDefault();

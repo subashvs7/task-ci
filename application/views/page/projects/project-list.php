@@ -77,7 +77,22 @@
       <h3 class="box-title"><i class="fa fa-folder-open"></i> Project List</h3>
       <div class="box-tools pull-right">
         <a href="<?php echo site_url('project-kanban') ?>" class="btn btn-sm btn-default"><i class="fa fa-columns"></i> Kanban View</a>
-        <?php if ($this->session->userdata(SESS_HEAD . '_role') === 'admin'): ?>
+        <?php 
+        $user_role = $this->session->userdata(SESS_HEAD . '_role');
+        $uid = $this->session->userdata(SESS_HEAD . '_user_id');
+        $show_actions = false;
+        if (in_array($user_role, ['admin', 'manager'])) {
+            $show_actions = true;
+        } else if (!empty($record_list)) {
+            foreach ($record_list as $p) {
+                if ($p['created_by'] == $uid) {
+                    $show_actions = true;
+                    break;
+                }
+            }
+        }
+        if (in_array($user_role, ['admin', 'manager'])): 
+        ?>
         <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addProjectModal">
           <i class="fa fa-plus"></i> Add Project
         </button>
@@ -91,20 +106,20 @@
             <th>#</th>
             <th>Project</th>
             <th>Stacks</th>
-            <th>Status</th>
-            <th>Priority</th>
-            <th>Mgr Deadline</th>
-            <th>Tasks</th>
-            <th>Progress</th>
+            <th>Status / Priority</th>
+            <th>Document</th>
+            <th>Tasks / Progress</th>
             <th>Manager</th>
             <th>Dates</th>
             <th>Remaining Days</th>
+            <?php if ($show_actions): ?>
             <th>Actions</th>
+            <?php endif; ?>
           </tr>
         </thead>
         <tbody>
           <?php if (empty($record_list)): ?>
-          <tr><td colspan="11" class="text-center text-muted">No projects found.</td></tr>
+          <tr><td colspan="<?php echo $show_actions ? '10' : '9'; ?>" class="text-center text-muted">No projects found.</td></tr>
           <?php else: ?>
           <?php foreach ($record_list as $j => $p):
             $ptask  = (int)$p['task_count'];
@@ -141,24 +156,33 @@
               );
               $sm = isset($status_map[$p['status']]) ? $status_map[$p['status']] : array('cls'=>'label-default','label'=>$p['status']);
               ?>
-              <span class="label <?php echo $sm['cls']; ?>"><?php echo $sm['label']; ?></span>
+              <div style="margin-bottom:5px;">
+                <span class="label <?php echo $sm['cls']; ?>"><?php echo $sm['label']; ?></span>
+              </div>
+              <div>
+                <span class="badge badge-priority-<?php echo $p['priority']; ?>"><?php $pl = TASK_PRIORITY_OPT; echo isset($pl[$p['priority']]) ? $pl[$p['priority']] : $p['priority']; ?></span>
+              </div>
             </td>
-            <td><span class="badge badge-priority-<?php echo $p['priority']; ?>"><?php $pl = TASK_PRIORITY_OPT; echo isset($pl[$p['priority']]) ? $pl[$p['priority']] : $p['priority']; ?></span></td>
-            <td>
-              <?php echo $p['manager_deadline_days']; ?> days<br>
-              <span class="label label-primary" style="font-size:10px; font-weight:normal;">Est: <?php echo round($p['calculated_time_hours'], 1); ?>h</span>
-            </td>
-            <td>
-              <?php echo $pdone; ?>/<?php echo $ptask; ?>
-              <?php if ($overdue > 0): ?>
-                <br><span class="text-danger" style="font-size:11px;"><i class="fa fa-exclamation-triangle"></i> <?php echo $overdue; ?> overdue</span>
+            <td class="text-center">
+              <?php if (!empty($p['document']) && $p['document'] !== 'null' && $p['document'] !== '[]'): ?>
+                <button type="button" class="btn btn-xs btn-default btn-view-docs" data-docs="<?php echo htmlspecialchars($p['document'], ENT_QUOTES, 'UTF-8'); ?>" data-id="<?php echo $p['project_id']; ?>" title="View Documents">
+                  <i class="fa fa-file-pdf-o text-danger"></i> Docs
+                </button>
+              <?php else: ?>
+                -
               <?php endif; ?>
             </td>
-            <td style="min-width:100px;">
-              <div class="progress progress-xs" style="margin-bottom:0;">
+            <td style="min-width:120px;">
+              <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:3px;">
+                <span><?php echo $pdone; ?>/<?php echo $ptask; ?> tasks</span>
+                <strong><?php echo $ppct; ?>%</strong>
+              </div>
+              <div class="progress progress-xs" style="margin-bottom:3px;">
                 <div class="progress-bar bg-green" style="width:<?php echo $ppct; ?>%;"></div>
               </div>
-              <small><?php echo $ppct; ?>%</small>
+              <?php if ($overdue > 0): ?>
+                <span class="text-danger" style="font-size:11px;"><i class="fa fa-exclamation-triangle"></i> <?php echo $overdue; ?> overdue</span>
+              <?php endif; ?>
             </td>
             <td><?php echo htmlspecialchars($p['owner_name'] ?: '-'); ?></td>
             <td style="font-size:11px; white-space:nowrap;">
@@ -202,8 +226,9 @@
               }
               ?>
             </td>
+            <?php if ($show_actions): ?>
              <td style="white-space:nowrap;">
-              <a href="#" class="btn btn-xs btn-info btn-view-project-modal" data-id="<?php echo $p['project_id']; ?>" title="View"><i class="fa fa-eye"></i></a>
+              <?php if (in_array($user_role, ['admin', 'manager']) || $p['created_by'] == $uid): ?>
               <button class="btn btn-xs btn-warning btn-edit-project"
                 data-id="<?php echo $p['project_id']; ?>"
                 data-name="<?php echo htmlspecialchars($p['name'], ENT_QUOTES); ?>"
@@ -222,7 +247,9 @@
               <button class="btn btn-xs btn-danger del_record" value="<?php echo $p['project_id']; ?>" data-tbl="tm_projects" data-col="project_id" title="Delete">
                 <i class="fa fa-trash"></i>
               </button>
+              <?php endif; ?>
             </td>
+            <?php endif; ?>
           </tr>
           <?php endforeach; ?>
           <?php endif; ?>
@@ -240,7 +267,7 @@
 <div class="modal fade" id="addProjectModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form action="<?php echo site_url($s_url) ?>" method="post">
+      <form action="<?php echo site_url($s_url) ?>" method="post" enctype="multipart/form-data">
         <input type="hidden" name="mode" value="Add">
         <div class="modal-header" style="background:#2c3e50; color:#fff;">
           <button type="button" class="close" data-dismiss="modal" style="color:#fff;">&times;</button>
@@ -265,8 +292,12 @@
             <label>Description</label>
             <textarea name="description" class="form-control" rows="3" placeholder="Project description..."></textarea>
           </div>
+          <div class="form-group">
+            <label>Upload Document (PDF/Image)</label>
+            <input type="file" name="document" class="form-control" accept="application/pdf,image/*">
+          </div>
           <div class="row">
-            <div class="col-md-4">
+            <div class="col-md-6">
               <div class="form-group">
                 <label>Status</label>
                 <select name="status" class="form-control">
@@ -276,7 +307,7 @@
                 </select>
               </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-6">
               <div class="form-group">
                 <label>Priority</label>
                 <select name="priority" class="form-control">
@@ -284,12 +315,6 @@
                   <option value="<?php echo $k; ?>" <?php echo ($k == 'medium') ? 'selected' : ''; ?>><?php echo $v; ?></option>
                   <?php endforeach; ?>
                 </select>
-              </div>
-            </div>
-            <div class="col-md-4">
-              <div class="form-group">
-                <label>Manager Deadline (Days)</label>
-                <input type="number" name="manager_deadline_days" class="form-control" min="0" value="0">
               </div>
             </div>
           </div>
@@ -308,12 +333,19 @@
             </div>
             <div class="col-md-4">
               <div class="form-group">
-                <label>Manager</label>
+                <label>Assign To</label>
                 <select name="owner_id" class="form-control select2">
-                  <option value="">-- Select Manager --</option>
-                  <?php foreach ($users_list as $u): ?>
-                  <option value="<?php echo $u['user_id']; ?>"><?php echo htmlspecialchars($u['name']); ?></option>
-                  <?php endforeach; ?>
+                  <option value="">-- Select Assignee --</option>
+                  <optgroup label="Managers">
+                    <?php foreach ($users_list as $u): if($u['role'] === 'manager'): ?>
+                      <option value="<?php echo $u['user_id']; ?>"><?php echo htmlspecialchars($u['name']); ?></option>
+                    <?php endif; endforeach; ?>
+                  </optgroup>
+                  <optgroup label="Team Leaders">
+                    <?php foreach ($users_list as $u): if($u['role'] === 'team_leader'): ?>
+                      <option value="<?php echo $u['user_id']; ?>"><?php echo htmlspecialchars($u['name']); ?></option>
+                    <?php endif; endforeach; ?>
+                  </optgroup>
                 </select>
               </div>
             </div>
@@ -339,7 +371,7 @@
 <div class="modal fade" id="editProjectModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form action="<?php echo site_url($s_url) ?>" method="post">
+      <form action="<?php echo site_url($s_url) ?>" method="post" enctype="multipart/form-data">
         <input type="hidden" name="mode" value="Edit">
         <input type="hidden" name="project_id" id="edit_project_id">
         <div class="modal-header" style="background:#e67e22; color:#fff;">
@@ -365,8 +397,13 @@
             <label>Description</label>
             <textarea name="description" id="edit_description" class="form-control" rows="3"></textarea>
           </div>
+          <div class="form-group">
+            <label>Upload Document (PDF/Image)</label>
+            <input type="file" name="document" class="form-control" accept="application/pdf,image/*">
+            <small class="text-muted">Uploading a new document will add a new version to the existing documents.</small>
+          </div>
           <div class="row">
-            <div class="col-md-4">
+            <div class="col-md-6">
               <div class="form-group">
                 <label>Status</label>
                 <select name="status" id="edit_status" class="form-control">
@@ -376,7 +413,7 @@
                 </select>
               </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-6">
               <div class="form-group">
                 <label>Priority</label>
                 <select name="priority" id="edit_priority" class="form-control">
@@ -384,12 +421,6 @@
                   <option value="<?php echo $k; ?>"><?php echo $v; ?></option>
                   <?php endforeach; ?>
                 </select>
-              </div>
-            </div>
-            <div class="col-md-4">
-              <div class="form-group">
-                <label>Manager Deadline (Days)</label>
-                <input type="number" name="manager_deadline_days" id="edit_deadline_input" class="form-control" min="0">
               </div>
             </div>
           </div>
@@ -408,12 +439,19 @@
             </div>
             <div class="col-md-4">
               <div class="form-group">
-                <label>Manager</label>
+                <label>Assign To</label>
                 <select name="owner_id" id="edit_owner_id" class="form-control select2">
-                  <option value="">-- Select Manager --</option>
-                  <?php foreach ($users_list as $u): ?>
-                  <option value="<?php echo $u['user_id']; ?>"><?php echo htmlspecialchars($u['name']); ?></option>
-                  <?php endforeach; ?>
+                  <option value="">-- Select Assignee --</option>
+                  <optgroup label="Managers">
+                    <?php foreach ($users_list as $u): if($u['role'] === 'manager'): ?>
+                      <option value="<?php echo $u['user_id']; ?>"><?php echo htmlspecialchars($u['name']); ?></option>
+                    <?php endif; endforeach; ?>
+                  </optgroup>
+                  <optgroup label="Team Leaders">
+                    <?php foreach ($users_list as $u): if($u['role'] === 'team_leader'): ?>
+                      <option value="<?php echo $u['user_id']; ?>"><?php echo htmlspecialchars($u['name']); ?></option>
+                    <?php endif; endforeach; ?>
+                  </optgroup>
                 </select>
               </div>
             </div>

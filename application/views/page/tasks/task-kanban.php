@@ -40,6 +40,9 @@
   </div>
 
   <?php
+  $cur_role = $this->session->userdata(SESS_HEAD . '_role');
+  $cur_uid  = $this->session->userdata(SESS_HEAD . '_user_id');
+  
   $col_colors = array(
     'backlog'     => array('color'=>'#95a5a6', 'label'=>'Backlog'),
     'todo'        => array('color'=>'#3498db', 'label'=>'To Do'),
@@ -109,7 +112,9 @@
           </div>
           <?php endif; ?>
           <div style="text-align:right; margin-top:4px;">
+            <?php if (in_array($cur_role, ['admin', 'manager', 'team_leader']) || $t['created_by'] == $cur_uid): ?>
             <button class="btn btn-xs btn-default kanban-status-btn" data-id="<?php echo $t['task_id']; ?>" onclick="event.stopPropagation();" title="Move"><i class="fa fa-arrows-h"></i></button>
+            <?php endif; ?>
           </div>
         </div>
         <?php endforeach; ?>

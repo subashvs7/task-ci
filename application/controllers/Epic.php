@@ -10,7 +10,131 @@ class Epic extends CI_Controller
             $this->session->set_flashdata('alert_error', 'You do not have permission to access Epics.');
             redirect_to_fallback();
         }
+
+        $this->output->set_header("Cache-Control: no-store, no-cache, must-revalidate, no-transform, max-age=0, post-check=0, pre-check=0");
+        $this->output->set_header("Pragma: no-cache");
     }
+
+    private function _handle_document_upload($existing_docs_json = null)
+    {
+        if (empty($_FILES['document']['name'])) {
+            return $existing_docs_json;
+        }
+
+        $upload_path = FCPATH . 'uploads/epics/';
+        if (!is_dir($upload_path)) mkdir($upload_path, 0777, true);
+
+        $config['upload_path']   = $upload_path;
+        $config['allowed_types'] = '*'; // allow all types to bypass strict MIME checks
+        $config['max_size']      = 10240; // 10MB
+        $config['file_name']     = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $_FILES['document']['name']);
+
+        $this->load->library('upload', $config);
+        $this->upload->initialize($config);
+
+        if ($this->upload->do_upload('document')) {
+            $file = $this->upload->data();
+            $file_url = base_url('uploads/epics/' . $file['file_name']);
+            $file_name = $file['orig_name'];
+
+            $docs = [];
+            if ($existing_docs_json) {
+                $docs = json_decode($existing_docs_json, true) ?: [];
+            }
+
+            $next_version = count($docs) + 1;
+
+            $docs[] = [
+                'version' => 'v' . $next_version,
+                'path'    => $file_url,
+                'name'    => $file_name,
+                'date'    => date('Y-m-d H:i:s')
+            ];
+
+            return json_encode($docs);
+        } else {
+            $error = $this->upload->display_errors('', '');
+            $this->session->set_flashdata('alert_error', 'File Upload Error: ' . $error);
+            return $existing_docs_json; // Return old so we don't overwrite with null on failure
+        }
+    }
+
+    // ── Document Deletion ────────────────────────────────────────────────────
+    
+    public function delete_document()
+    {
+        $this->_auth();
+        header('Content-Type: application/json');
+
+        $epic_id = (int)$this->input->post('id');
+        $index   = $this->input->post('index');
+        $epic    = $this->db->get_where('tm_epics', ['epic_id' => $epic_id])->row_array();
+
+        if (!$epic) {
+            echo json_encode(['success' => false, 'message' => 'Epic not found.']);
+            return;
+        }
+
+        if ($epic['document'] && $epic['document'] !== 'null' && $epic['document'] !== '[]') {
+            $docs = json_decode($epic['document'], true);
+            if (is_array($docs)) {
+                if ($index !== null && isset($docs[$index])) {
+                    $file_path = str_replace(base_url(), FCPATH, $docs[$index]['path']);
+                    if (file_exists($file_path)) unlink($file_path);
+                    array_splice($docs, $index, 1);
+                    
+                    $this->db->where('epic_id', $epic_id);
+                    if (count($docs) > 0) {
+                        $this->db->update('tm_epics', ['document' => json_encode($docs)]);
+                    } else {
+                        $this->db->update('tm_epics', ['document' => NULL]);
+                    }
+                    echo json_encode(['success' => true, 'message' => 'Document removed.']);
+                    return;
+                } else {
+                    foreach ($docs as $doc) {
+                        $file_path = str_replace(base_url(), FCPATH, $doc['path']);
+                        if (file_exists($file_path)) unlink($file_path);
+                    }
+                }
+            }
+        }
+
+        if ($index === null) {
+            $this->db->where('epic_id', $epic_id);
+            $this->db->update('tm_epics', ['document' => NULL]);
+            echo json_encode(['success' => true, 'message' => 'All documents deleted successfully.']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Document not found at specified index.']);
+        }
+    }
+
+    public function upload_additional_document()
+    {
+        $this->_auth();
+        header('Content-Type: application/json');
+        
+        $epic_id = (int)$this->input->post('id');
+        $epic = $this->db->get_where('tm_epics', ['epic_id' => $epic_id])->row_array();
+        if (!$epic) {
+            echo json_encode(['success' => false, 'message' => 'Epic not found.']);
+            return;
+        }
+        
+        if (!empty($_FILES['document']['name'])) {
+            $new_docs_json = $this->_handle_document_upload('document', $epic['document']);
+            if ($new_docs_json !== $epic['document']) {
+                $this->db->where('epic_id', $epic_id);
+                $this->db->update('tm_epics', ['document' => $new_docs_json]);
+                echo json_encode(['success' => true, 'message' => 'Document uploaded successfully.', 'docs' => json_decode($new_docs_json)]);
+                return;
+            }
+        }
+        
+        echo json_encode(['success' => false, 'message' => 'Failed to upload document.']);
+    }
+
+    // ── Epic List ────────────────────────────────────────────────────────────
 
     public function epic_list()
     {
@@ -24,13 +148,16 @@ class Epic extends CI_Controller
 
         if ($this->input->post('mode') == 'Add') {
             $user_role = $this->session->userdata(SESS_HEAD . '_role');
-            if (!in_array($user_role, ['admin', 'manager', 'team_leader'])) {
-                $this->session->set_flashdata('alert_error', 'Only Team Leaders or Managers can create Epics.');
+            if (!in_array($user_role, ['admin', 'manager', 'team_leader', 'staff'])) {
+                $this->session->set_flashdata('alert_error', 'You do not have permission to create Epics.');
                 redirect($data['s_url']);
             }
             $est_h = (float)$this->input->post('est_hours');
             $est_m = (float)$this->input->post('est_minutes');
             $estimated_time = round(($est_h * 60) + $est_m);
+
+            $docs_json = $this->_handle_document_upload();
+
             $ins = array(
                 'project_id'   => $this->input->post('project_id'),
                 'name'         => $this->input->post('name'),
@@ -38,7 +165,8 @@ class Epic extends CI_Controller
                 'status'       => $this->input->post('status') ?: 'open',
                 'priority'     => $this->input->post('priority') ?: 'medium',
                 'color'        => $this->input->post('color') ?: '#9b59b6',
-                'estimated_time'=> $estimated_time,
+                'estimated_time' => $estimated_time,
+                'document'     => $docs_json,
                 'status_flag'  => 'Active',
                 'created_by'   => $uid,
                 'created_date' => date('Y-m-d H:i:s'),
@@ -52,13 +180,20 @@ class Epic extends CI_Controller
 
         if ($this->input->post('mode') == 'Edit') {
             $user_role = $this->session->userdata(SESS_HEAD . '_role');
-            if (!in_array($user_role, ['admin', 'manager', 'team_leader'])) {
-                $this->session->set_flashdata('alert_error', 'Only Team Leaders or Managers can edit Epics.');
+            if (!in_array($user_role, ['admin', 'manager', 'team_leader', 'staff'])) {
+                $this->session->set_flashdata('alert_error', 'You do not have permission to edit Epics.');
                 redirect($data['s_url']);
             }
             $est_h = (float)$this->input->post('est_hours');
             $est_m = (float)$this->input->post('est_minutes');
             $estimated_time = round(($est_h * 60) + $est_m);
+
+            $epic_id = $this->input->post('epic_id');
+            $existing_epic = $this->db->get_where('tm_epics', ['epic_id' => $epic_id])->row_array();
+            $existing_docs_json = $existing_epic ? $existing_epic['document'] : null;
+
+            $docs_json = $this->_handle_document_upload($existing_docs_json);
+
             $upd = array(
                 'project_id'   => $this->input->post('project_id'),
                 'name'         => $this->input->post('name'),
@@ -66,7 +201,8 @@ class Epic extends CI_Controller
                 'status'       => $this->input->post('status'),
                 'priority'     => $this->input->post('priority'),
                 'color'        => $this->input->post('color'),
-                'estimated_time'=> $estimated_time,
+                'estimated_time' => $estimated_time,
+                'document'     => $docs_json,
                 'updated_by'   => $uid,
                 'updated_date' => date('Y-m-d H:i:s'),
             );
@@ -88,7 +224,7 @@ class Epic extends CI_Controller
         $data['total_records'] = (int)$cnt['cnt'];
 
         $data['sno'] = $offset = $this->uri->segment(2, 0);
-        $config = $this->_pagination_config($data['s_url'], $data['total_records'], 30);
+        $config = $this->_pagination_config($data['s_url'], $data['total_records'], 10);
         $this->pagination->initialize($config);
 
         $sql = "SELECT e.*, p.name as project_name,
@@ -98,7 +234,7 @@ class Epic extends CI_Controller
                 LEFT JOIN tm_projects p ON p.project_id = e.project_id
                 WHERE {$where}
                 ORDER BY e.created_date DESC
-                LIMIT {$offset}, 30";
+                LIMIT {$offset}, 10";
         $data['record_list']   = $this->db->query($sql)->result_array();
         $data['pagination']    = $this->pagination->create_links();
         $role = $this->session->userdata(SESS_HEAD . '_role');
@@ -125,13 +261,18 @@ class Epic extends CI_Controller
             'attributes'       => array('class' => 'page-link'),
             'full_tag_open'    => '<ul class="pagination pagination-sm no-margin pull-right">',
             'full_tag_close'   => '</ul>',
-            'num_tag_open'     => '<li class="page-item">', 'num_tag_close'     => '</li>',
+            'num_tag_open'     => '<li class="page-item">',
+            'num_tag_close'     => '</li>',
             'cur_tag_open'     => '<li class="page-item active"><a href="#" class="page-link">',
             'cur_tag_close'    => '<span class="sr-only">(current)</span></a></li>',
-            'prev_tag_open'    => '<li class="page-item">', 'prev_tag_close'    => '</li>',
-            'next_tag_open'    => '<li class="page-item">', 'next_tag_close'    => '</li>',
-            'first_tag_open'   => '<li class="page-item">', 'first_tag_close'   => '</li>',
-            'last_tag_open'    => '<li class="page-item">', 'last_tag_close'    => '</li>',
+            'prev_tag_open'    => '<li class="page-item">',
+            'prev_tag_close'    => '</li>',
+            'next_tag_open'    => '<li class="page-item">',
+            'next_tag_close'    => '</li>',
+            'first_tag_open'   => '<li class="page-item">',
+            'first_tag_close'   => '</li>',
+            'last_tag_open'    => '<li class="page-item">',
+            'last_tag_close'    => '</li>',
             'prev_link'        => 'Prev',
             'next_link'        => 'Next',
         );

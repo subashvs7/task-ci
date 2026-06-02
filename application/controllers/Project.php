@@ -10,6 +10,130 @@ class Project extends CI_Controller
             $this->session->set_flashdata('alert_error', 'You do not have permission to access Projects.');
             redirect_to_fallback();
         }
+
+        $this->output->set_header("Cache-Control: no-store, no-cache, must-revalidate, no-transform, max-age=0, post-check=0, pre-check=0");
+        $this->output->set_header("Pragma: no-cache");
+    }
+
+    private function _handle_document_upload($existing_docs_json = null)
+    {
+        if (empty($_FILES['document']['name'])) {
+            return $existing_docs_json;
+        }
+
+        $upload_path = FCPATH . 'uploads/projects/';
+        if (!is_dir($upload_path)) mkdir($upload_path, 0777, true);
+
+        $config['upload_path']   = $upload_path;
+        $config['allowed_types'] = '*'; // allow all types to bypass strict MIME checks
+        $config['max_size']      = 10240; // 10MB
+        $config['file_name']     = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $_FILES['document']['name']);
+        
+        $this->load->library('upload', $config);
+        $this->upload->initialize($config);
+
+        if ($this->upload->do_upload('document')) {
+            $file = $this->upload->data();
+            $file_url = base_url('uploads/projects/' . $file['file_name']);
+            $file_name = $file['orig_name'];
+            
+            $docs = [];
+            if ($existing_docs_json) {
+                $docs = json_decode($existing_docs_json, true) ?: [];
+            }
+            
+            $next_version = count($docs) + 1;
+            
+            $docs[] = [
+                'version' => 'v' . $next_version,
+                'path'    => $file_url,
+                'name'    => $file_name,
+                'date'    => date('Y-m-d H:i:s')
+            ];
+            
+            return json_encode($docs);
+        } else {
+            $error = $this->upload->display_errors('', '');
+            $this->session->set_flashdata('alert_error', 'File Upload Error: ' . $error);
+            return $existing_docs_json; // Return old so we don't overwrite with null on failure
+        }
+    }
+
+    // ── Document Deletion ────────────────────────────────────────────────────
+    
+    public function delete_document()
+    {
+        $this->_auth();
+        header('Content-Type: application/json');
+
+        $project_id = (int)$this->input->post('id');
+        $index      = $this->input->post('index'); // Can be numeric string or null
+        $project    = $this->db->get_where('tm_projects', ['project_id' => $project_id])->row_array();
+
+        if (!$project) {
+            echo json_encode(['success' => false, 'message' => 'Project not found.']);
+            return;
+        }
+
+        if ($project['document'] && $project['document'] !== 'null' && $project['document'] !== '[]') {
+            $docs = json_decode($project['document'], true);
+            if (is_array($docs)) {
+                if ($index !== null && isset($docs[$index])) {
+                    // Delete specific document
+                    $file_path = str_replace(base_url(), FCPATH, $docs[$index]['path']);
+                    if (file_exists($file_path)) unlink($file_path);
+                    array_splice($docs, $index, 1);
+                    
+                    $this->db->where('project_id', $project_id);
+                    if (count($docs) > 0) {
+                        $this->db->update('tm_projects', ['document' => json_encode($docs)]);
+                    } else {
+                        $this->db->update('tm_projects', ['document' => NULL]);
+                    }
+                    echo json_encode(['success' => true, 'message' => 'Document removed.']);
+                    return;
+                } else {
+                    // Delete all
+                    foreach ($docs as $doc) {
+                        $file_path = str_replace(base_url(), FCPATH, $doc['path']);
+                        if (file_exists($file_path)) unlink($file_path);
+                    }
+                }
+            }
+        }
+
+        if ($index === null) {
+            $this->db->where('project_id', $project_id);
+            $this->db->update('tm_projects', ['document' => NULL]);
+            echo json_encode(['success' => true, 'message' => 'All documents deleted successfully.']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Document not found at specified index.']);
+        }
+    }
+
+    public function upload_additional_document()
+    {
+        $this->_auth();
+        header('Content-Type: application/json');
+        
+        $project_id = (int)$this->input->post('id');
+        $project = $this->db->get_where('tm_projects', ['project_id' => $project_id])->row_array();
+        if (!$project) {
+            echo json_encode(['success' => false, 'message' => 'Project not found.']);
+            return;
+        }
+        
+        if (!empty($_FILES['document']['name'])) {
+            $new_docs_json = $this->_handle_document_upload('document', $project['document']);
+            if ($new_docs_json !== $project['document']) {
+                $this->db->where('project_id', $project_id);
+                $this->db->update('tm_projects', ['document' => $new_docs_json]);
+                echo json_encode(['success' => true, 'message' => 'Document uploaded successfully.', 'docs' => json_decode($new_docs_json)]);
+                return;
+            }
+        }
+        
+        echo json_encode(['success' => false, 'message' => 'Failed to upload document.']);
     }
 
     // ── Project List ─────────────────────────────────────────────────────────
@@ -24,18 +148,34 @@ class Project extends CI_Controller
 
         // Handle Add
         if ($this->input->post('mode') == 'Add') {
+            $docs_json = $this->_handle_document_upload();
+
+            $assignee_id = $this->input->post('owner_id');
+            $owner_id = $this->session->userdata(SESS_HEAD . '_user_id'); // default to admin
+            $team_leader_id = null;
+
+            if ($assignee_id) {
+                $assignee = $this->db->get_where('tm_users', ['user_id' => $assignee_id])->row_array();
+                if ($assignee && $assignee['role'] === 'manager') {
+                    $owner_id = $assignee_id;
+                } else if ($assignee && $assignee['role'] === 'team_leader') {
+                    $team_leader_id = $assignee_id;
+                }
+            }
+
             $ins = array(
                 'name'         => $this->input->post('name'),
                 'key_name'     => NULL,
                 'description'  => $this->input->post('description'),
                 'status'       => $this->input->post('status') ?: 'planning',
                 'priority'     => $this->input->post('priority') ?: 'medium',
-                'manager_deadline_days' => (int)$this->input->post('manager_deadline_days'),
+                'manager_deadline_days' => 0,
                 'color'        => $this->input->post('color') ?: '#2c3e50',
                 'stacks'       => $this->input->post('stacks') ?: NULL,
                 'start_date'   => $this->input->post('start_date') ?: NULL,
                 'end_date'     => $this->input->post('end_date') ?: NULL,
-                'owner_id'     => $this->input->post('owner_id') ?: $this->session->userdata(SESS_HEAD . '_user_id'),
+                'owner_id'     => $owner_id,
+                'document'     => $docs_json,
                 'status_flag'  => 'Active',
                 'created_by'   => $this->session->userdata(SESS_HEAD . '_user_id'),
                 'created_date' => date('Y-m-d H:i:s'),
@@ -43,27 +183,77 @@ class Project extends CI_Controller
                 'updated_date' => date('Y-m-d H:i:s'),
             );
             $this->db->insert('tm_projects', $ins);
+            $new_project_id = $this->db->insert_id();
+
+            if ($team_leader_id) {
+                $this->db->insert('tm_project_handlers', [
+                    'project_id' => $new_project_id,
+                    'team_leader_id' => $team_leader_id,
+                    'assigned_by' => $this->session->userdata(SESS_HEAD . '_user_id'),
+                    'assigned_date' => date('Y-m-d H:i:s'),
+                    'status' => 'active'
+                ]);
+            }
+
             $this->session->set_flashdata('alert_success', 'Project created successfully.');
             redirect($data['s_url']);
         }
 
         // Handle Edit
         if ($this->input->post('mode') == 'Edit') {
+            $project_id = $this->input->post('project_id');
+            $existing_project = $this->db->get_where('tm_projects', ['project_id' => $project_id])->row_array();
+            $existing_docs_json = $existing_project ? $existing_project['document'] : null;
+
+            $docs_json = $this->_handle_document_upload($existing_docs_json);
+
+            $assignee_id = $this->input->post('owner_id');
+            $owner_id = $this->session->userdata(SESS_HEAD . '_user_id'); // default to admin
+            $team_leader_id = null;
+
+            if ($assignee_id) {
+                $assignee = $this->db->get_where('tm_users', ['user_id' => $assignee_id])->row_array();
+                if ($assignee && $assignee['role'] === 'manager') {
+                    $owner_id = $assignee_id;
+                } else if ($assignee && $assignee['role'] === 'team_leader') {
+                    $team_leader_id = $assignee_id;
+                }
+            }
+
             $upd = array(
                 'name'         => $this->input->post('name'),
                 'description'  => $this->input->post('description'),
                 'status'       => $this->input->post('status'),
                 'priority'     => $this->input->post('priority'),
-                'manager_deadline_days' => (int)$this->input->post('manager_deadline_days'),
+                'manager_deadline_days' => 0,
                 'stacks'       => $this->input->post('stacks') ?: NULL,
                 'start_date'   => $this->input->post('start_date') ?: NULL,
                 'end_date'     => $this->input->post('end_date') ?: NULL,
-                'owner_id'     => $this->input->post('owner_id') ?: NULL,
+                'owner_id'     => $owner_id,
+                'document'     => $docs_json,
                 'updated_by'   => $this->session->userdata(SESS_HEAD . '_user_id'),
                 'updated_date' => date('Y-m-d H:i:s'),
             );
-            $this->db->where('project_id', $this->input->post('project_id'));
+            $this->db->where('project_id', $project_id);
             $this->db->update('tm_projects', $upd);
+
+            // Reassign handlers if needed
+            $this->db->where('project_id', $project_id)->update('tm_project_handlers', ['status' => 'inactive']);
+            if ($team_leader_id) {
+                $exists = $this->db->get_where('tm_project_handlers', ['project_id' => $project_id, 'team_leader_id' => $team_leader_id])->row_array();
+                if (!$exists) {
+                    $this->db->insert('tm_project_handlers', [
+                        'project_id' => $project_id,
+                        'team_leader_id' => $team_leader_id,
+                        'assigned_by' => $this->session->userdata(SESS_HEAD . '_user_id'),
+                        'assigned_date' => date('Y-m-d H:i:s'),
+                        'status' => 'active'
+                    ]);
+                } else {
+                    $this->db->where('handler_id', $exists['handler_id'])->update('tm_project_handlers', ['status' => 'active']);
+                }
+            }
+
             $this->session->set_flashdata('alert_success', 'Project updated successfully.');
             redirect($data['s_url'] . '/' . $this->uri->segment(2, 0));
         }
@@ -80,16 +270,6 @@ class Project extends CI_Controller
         
         $role = $this->session->userdata(SESS_HEAD . '_role');
         $uid = $this->session->userdata(SESS_HEAD . '_user_id');
-        if ($role === 'team_leader' || $role === 'staff') {
-            $this->db->group_start();
-            $this->db->where('p.owner_id', $uid);
-            $this->db->or_where("p.project_id IN (SELECT project_id FROM tm_project_handlers WHERE team_leader_id = {$uid} AND status='active')", NULL, FALSE);
-            $this->db->or_where("p.project_id IN (SELECT project_id FROM tm_project_members WHERE user_id = {$uid})", NULL, FALSE);
-            $this->db->or_where("p.project_id IN (SELECT project_id FROM tm_tasks WHERE assigned_to = {$uid})", NULL, FALSE);
-            $this->db->group_end();
-        } else if ($role === 'manager') {
-            $this->db->where('p.owner_id', $uid);
-        }
 
         $this->db->where('p.status_flag', 'Active');
         if ($search)   $this->db->where('p.project_id', (int)$search);
@@ -125,13 +305,7 @@ class Project extends CI_Controller
                 FROM tm_projects p
                 LEFT JOIN tm_users u ON u.user_id = p.owner_id ";
         
-        if ($role === 'team_leader' || $role === 'staff') {
-            $sql .= " WHERE p.status_flag = 'Active' AND (p.owner_id = {$uid} OR p.project_id IN (SELECT project_id FROM tm_project_handlers WHERE team_leader_id = {$uid} AND status='active') OR p.project_id IN (SELECT project_id FROM tm_project_members WHERE user_id = {$uid}) OR p.project_id IN (SELECT project_id FROM tm_tasks WHERE assigned_to = {$uid})) ";
-        } else if ($role === 'manager') {
-            $sql .= " WHERE p.status_flag = 'Active' AND p.owner_id = {$uid} ";
-        } else {
-            $sql .= " WHERE p.status_flag = 'Active' ";
-        }
+        $sql .= " WHERE p.status_flag = 'Active' ";
         if ($search)   $sql .= " AND p.project_id = " . (int)$search;
         if ($f_status) $sql .= " AND p.status = '" . $this->db->escape_str($f_status) . "'";
         if ($f_prio)   $sql .= " AND p.priority = '" . $this->db->escape_str($f_prio) . "'";
@@ -139,7 +313,7 @@ class Project extends CI_Controller
 
         $data['record_list']  = $this->db->query($sql)->result_array();
         $data['pagination']   = $this->pagination->create_links();
-        $data['users_list']   = $this->db->query("SELECT user_id, name FROM tm_users WHERE role='manager' AND status='Active' ORDER BY name")->result_array();
+        $data['users_list']   = $this->db->query("SELECT user_id, name, role FROM tm_users WHERE role IN ('manager', 'team_leader') AND status='Active' ORDER BY role, name")->result_array();
         
         $p_sql = "SELECT project_id, name FROM tm_projects WHERE status_flag = 'Active'";
         if ($role === 'team_leader' || $role === 'staff') {
@@ -303,13 +477,7 @@ class Project extends CI_Controller
                 FROM tm_projects p
                 LEFT JOIN tm_users u ON u.user_id = p.owner_id ";
                 
-        if ($role === 'team_leader' || $role === 'staff') {
-            $sql .= " WHERE p.status_flag = 'Active' AND (p.owner_id = {$uid} OR p.project_id IN (SELECT project_id FROM tm_project_handlers WHERE team_leader_id = {$uid} AND status='active') OR p.project_id IN (SELECT project_id FROM tm_project_members WHERE user_id = {$uid}) OR p.project_id IN (SELECT project_id FROM tm_tasks WHERE assigned_to = {$uid})) ";
-        } else if ($role === 'manager') {
-            $sql .= " WHERE p.status_flag = 'Active' AND p.owner_id = {$uid} ";
-        } else {
-            $sql .= " WHERE p.status_flag = 'Active' ";
-        }
+        $sql .= " WHERE p.status_flag = 'Active' ";
         
         $sql .= " ORDER BY p.created_date DESC";
         $data['projects'] = $this->db->query($sql)->result_array();

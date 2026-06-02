@@ -54,7 +54,6 @@
     <div class="box-header with-border">
       <h3 class="box-title"><i class="fa fa-handshake-o"></i> Delegated Projects</h3>
       <div class="box-tools pull-right">
-        <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#addHandlerModal"><i class="fa fa-plus"></i> Handle Project</button>
       </div>
     </div>
     <div class="box-body table-responsive no-padding">

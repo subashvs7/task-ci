@@ -10,6 +10,140 @@ class Task extends CI_Controller
             $this->session->set_flashdata('alert_error', 'You do not have permission to access Tasks.');
             redirect_to_fallback();
         }
+
+        $this->output->set_header("Cache-Control: no-store, no-cache, must-revalidate, no-transform, max-age=0, post-check=0, pre-check=0");
+        $this->output->set_header("Pragma: no-cache");
+    }
+
+    private function _handle_document_upload($existing_docs_json = null)
+    {
+        if (empty($_FILES['document']['name'])) {
+            return $existing_docs_json;
+        }
+
+        $upload_path = FCPATH . 'uploads/tasks/';
+        if (!is_dir($upload_path)) mkdir($upload_path, 0777, true);
+
+        $config['upload_path']   = $upload_path;
+        $config['allowed_types'] = '*'; // allow all types to bypass strict MIME checks
+        $config['max_size']      = 10240; // 10MB
+        $config['file_name']     = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $_FILES['document']['name']);
+
+        $this->load->library('upload', $config);
+        $this->upload->initialize($config);
+
+        if ($this->upload->do_upload('document')) {
+            $file = $this->upload->data();
+            $file_url = base_url('uploads/tasks/' . $file['file_name']);
+            $file_name = $file['orig_name'];
+            
+            $docs = [];
+            if ($existing_docs_json) {
+                // If the old data is not JSON, migrate it
+                if (!empty($existing_docs_json) && $existing_docs_json[0] !== '[' && $existing_docs_json !== 'null') {
+                    $docs[] = [
+                        'version' => 'v1',
+                        'path' => base_url('uploads/tasks/' . $existing_docs_json),
+                        'name' => $existing_docs_json,
+                        'date' => date('Y-m-d H:i:s')
+                    ];
+                } else {
+                    $docs = json_decode($existing_docs_json, true) ?: [];
+                }
+            }
+            
+            $next_version = count($docs) + 1;
+            
+            $docs[] = [
+                'version' => 'v' . $next_version,
+                'path'    => $file_url,
+                'name'    => $file_name,
+                'date'    => date('Y-m-d H:i:s')
+            ];
+            
+            return json_encode($docs);
+        } else {
+            $error = $this->upload->display_errors('', '');
+            $this->session->set_flashdata('alert_error', 'File Upload Error: ' . $error);
+            return $existing_docs_json;
+        }
+    }
+
+    // ── Document Deletion ────────────────────────────────────────────────────
+    
+    public function delete_document()
+    {
+        $this->_auth();
+        header('Content-Type: application/json');
+
+        $task_id = (int)$this->input->post('id');
+        $index   = $this->input->post('index');
+        $task = $this->db->get_where('tm_tasks', ['task_id' => $task_id])->row_array();
+
+        if (!$task) {
+            echo json_encode(['success' => false, 'message' => 'Task not found.']);
+            return;
+        }
+
+        if ($task['document'] && $task['document'] !== 'null' && $task['document'] !== '[]') {
+            $docs = json_decode($task['document'], true);
+            if (is_array($docs)) {
+                if ($index !== null && isset($docs[$index])) {
+                    $file_path = str_replace(base_url(), FCPATH, $docs[$index]['path']);
+                    if (file_exists($file_path)) unlink($file_path);
+                    array_splice($docs, $index, 1);
+                    
+                    $this->db->where('task_id', $task_id);
+                    if (count($docs) > 0) {
+                        $this->db->update('tm_tasks', ['document' => json_encode($docs)]);
+                    } else {
+                        $this->db->update('tm_tasks', ['document' => NULL]);
+                    }
+                    echo json_encode(['success' => true, 'message' => 'Document removed.']);
+                    return;
+                } else {
+                    foreach ($docs as $doc) {
+                        $file_path = str_replace(base_url(), FCPATH, $doc['path']);
+                        if (file_exists($file_path)) {
+                            unlink($file_path);
+                        }
+                    }
+                }
+            }
+        }
+
+        if ($index === null) {
+            $this->db->where('task_id', $task_id);
+            $this->db->update('tm_tasks', ['document' => NULL]);
+            echo json_encode(['success' => true, 'message' => 'All documents deleted successfully.']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Document not found at specified index.']);
+        }
+    }
+
+    public function upload_additional_document()
+    {
+        $this->_auth();
+        header('Content-Type: application/json');
+        
+        $task_id = (int)$this->input->post('id');
+        $task = $this->db->get_where('tm_tasks', ['task_id' => $task_id])->row_array();
+        if (!$task) {
+            echo json_encode(['success' => false, 'message' => 'Task not found.']);
+            return;
+        }
+        
+        if (!empty($_FILES['document']['name'])) {
+            $new_docs_json = $this->_handle_document_upload('document', $task['document']);
+            if ($new_docs_json !== $task['document']) {
+                $this->db->where('task_id', $task_id);
+                $this->db->update('tm_tasks', ['document' => $new_docs_json]);
+                echo json_encode(['success' => true, 'message' => 'Document uploaded successfully.', 'docs' => json_decode($new_docs_json)]);
+                return;
+            }
+        }
+        
+        echo json_encode(['success' => false, 'message' => 'Failed to upload document.']);
     }
 
     // ── Task List ─────────────────────────────────────────────────────────────
@@ -48,11 +182,17 @@ class Task extends CI_Controller
                 'updated_by'     => $uid,
                 'updated_date'   => date('Y-m-d H:i:s'),
             );
+            $document = $this->_handle_document_upload(null);
+            if ($document) {
+                $ins['document'] = $document;
+            }
             $this->db->insert('tm_tasks', $ins);
             $task_id = $this->db->insert_id();
             $this->_log_activity($task_id, 'created', 'Task created.');
             $this->session->set_flashdata('alert_success', 'Task created successfully.');
-            redirect($data['s_url']);
+            
+            $redirect_url = $this->input->post('redirect_url') ?: $data['s_url'];
+            redirect($redirect_url);
         }
 
         if ($this->input->post('mode') == 'Edit') {
@@ -78,13 +218,25 @@ class Task extends CI_Controller
                 'updated_by'     => $uid,
                 'updated_date'   => date('Y-m-d H:i:s'),
             );
+            $existing = $this->db->get_where('tm_tasks', ['task_id' => $task_id])->row_array();
+            $document = $this->_handle_document_upload($existing['document']);
+            if ($document !== $existing['document']) {
+                $upd['document'] = $document;
+            }
             if ($new_status === 'in_progress') $upd['started_at']   = date('Y-m-d H:i:s');
             if (in_array($new_status, array('done','closed'))) $upd['completed_at'] = date('Y-m-d H:i:s');
             $this->db->where('task_id', $task_id);
             $this->db->update('tm_tasks', $upd);
             $this->_log_activity($task_id, 'updated', 'Task updated.');
             $this->session->set_flashdata('alert_success', 'Task updated successfully.');
-            redirect($data['s_url'] . '/' . $this->uri->segment(2, 0));
+            
+            $story_id = $this->input->post('story_id');
+            if ($story_id) {
+                $this->_check_and_update_story_status($story_id);
+            }
+            
+            $redirect_url = $this->input->post('redirect_url') ?: ($data['s_url'] . '/' . $this->uri->segment(2, 0));
+            redirect($redirect_url);
         }
 
         $f_project  = $this->input->get('project_id');
@@ -102,12 +254,6 @@ class Task extends CI_Controller
         $role = $this->session->userdata(SESS_HEAD . '_role');
         $where = "t.status_flag = 'Active'";
         
-        if ($role === 'team_leader') {
-            $where .= " AND (t.assigned_to = {$uid} OR t.created_by = {$uid})";
-        } elseif ($role === 'staff') {
-            $where .= " AND t.assigned_to = {$uid}";
-        }
-
         if ($f_project)  $where .= " AND t.project_id = " . (int)$f_project;
         if ($f_story) {
             $where .= " AND t.story_id = " . (int)$f_story;
@@ -360,11 +506,7 @@ class Task extends CI_Controller
         $uid  = $this->session->userdata(SESS_HEAD . '_user_id');
         $where = "t.status_flag = 'Active' AND t.story_id IS NULL";
         
-        if ($role === 'team_leader') {
-            $where .= " AND (t.assigned_to = {$uid} OR t.created_by = {$uid})";
-        } elseif ($role === 'staff') {
-            $where .= " AND t.assigned_to = {$uid}";
-        }
+
 
         if ($f_project)  $where .= " AND t.project_id = " . (int)$f_project;
         if ($f_assigned) $where .= " AND t.assigned_to = " . (int)$f_assigned;
@@ -711,6 +853,12 @@ class Task extends CI_Controller
         $this->db->update('tm_tasks', $upd);
 
         $this->_log_activity($task_id, 'completed', 'Task marked as Complete.');
+
+        // Auto-update story status if all tasks are done
+        $task_info = $this->db->query("SELECT story_id FROM tm_tasks WHERE task_id = ?", array($task_id))->row_array();
+        if ($task_info && $task_info['story_id']) {
+            $this->_check_and_update_story_status($task_info['story_id']);
+        }
 
         echo json_encode(array('success' => true));
     }

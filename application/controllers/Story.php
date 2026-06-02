@@ -10,6 +10,9 @@ class Story extends CI_Controller
             $this->session->set_flashdata('alert_error', 'You do not have permission to access User Stories.');
             redirect_to_fallback();
         }
+
+        $this->output->set_header("Cache-Control: no-store, no-cache, must-revalidate, no-transform, max-age=0, post-check=0, pre-check=0");
+        $this->output->set_header("Pragma: no-cache");
     }
 
     public function story_list()
@@ -24,10 +27,6 @@ class Story extends CI_Controller
 
         if ($this->input->post('mode') == 'Add') {
             $user_role = $this->session->userdata(SESS_HEAD . '_role');
-            if ($user_role !== 'staff') {
-                $this->session->set_flashdata('alert_error', 'Only staff can create user stories.');
-                redirect($data['s_url']);
-            }
             $assignee_id = NULL;
             $epic_id = $this->input->post('epic_id') ?: NULL;
             if ($epic_id) {
@@ -110,7 +109,7 @@ class Story extends CI_Controller
         $data['total_records'] = (int)$cnt['cnt'];
 
         $data['sno'] = $offset = $this->uri->segment(2, 0);
-        $config = $this->_pagination_config($data['s_url'], $data['total_records'], 30);
+        $config = $this->_pagination_config($data['s_url'], $data['total_records'], 10);
         $this->pagination->initialize($config);
 
         if ($this->input->post('mode') == 'AddSubTask') {
@@ -141,16 +140,17 @@ class Story extends CI_Controller
             redirect($data['s_url']);
         }
 
-        $sql = "SELECT s.*, p.name as project_name, e.name as epic_name, e.estimated_time as epic_estimated_time, u.name as assignee_name,
+        $sql = "SELECT s.*, p.name as project_name, p.created_by as project_creator, e.name as epic_name, e.created_by as epic_creator, e.estimated_time as epic_estimated_time, u.name as assignee_name, uc.name as creator_name,
                     (SELECT COUNT(*) FROM tm_tasks WHERE story_id=s.story_id AND status_flag='Active') as task_count,
                     COALESCE((SELECT SUM(estimated_hours) FROM tm_tasks WHERE story_id=s.story_id AND status_flag='Active'), 0) as calculated_time_hours
                 FROM tm_user_stories s
                 LEFT JOIN tm_projects p ON p.project_id = s.project_id
                 LEFT JOIN tm_epics e ON e.epic_id = s.epic_id
                 LEFT JOIN tm_users u ON u.user_id = s.assignee_id
+                LEFT JOIN tm_users uc ON uc.user_id = s.created_by
                 WHERE {$where}
                 ORDER BY s.created_date DESC
-                LIMIT {$offset}, 30";
+                LIMIT {$offset}, 10";
         $data['record_list']   = $this->db->query($sql)->result_array();
 
         // Fetch sub-tasks for these stories
@@ -158,16 +158,15 @@ class Story extends CI_Controller
         $tasks_by_story = [];
         if (!empty($story_ids)) {
             $task_where = "t.story_id IN (" . implode(',', $story_ids) . ") AND t.status_flag='Active'";
-            if ($role === 'staff') {
-                $task_where .= " AND t.assigned_to = {$uid}";
-            }
             
             // Only fetch parent tasks here
-            $task_sql = "SELECT t.*, u.name as active_worker_name,
+            $task_sql = "SELECT t.*, u.name as active_worker_name, ua.name as assignee_name,
                             (SELECT started_at FROM tm_task_sessions WHERE task_id=t.task_id AND ended_at IS NULL AND status_flag='Active' LIMIT 1) as open_session_start,
-                            COALESCE((SELECT SUM(hours) FROM tm_time_logs WHERE task_id=t.task_id AND status_flag='Active'), 0) as logged_hours
+                            COALESCE((SELECT SUM(hours) FROM tm_time_logs WHERE task_id=t.task_id AND status_flag='Active'), 0) as logged_hours,
+                            (SELECT COUNT(*) FROM tm_attachments WHERE task_id=t.task_id AND status_flag='Active') as proof_count
                          FROM tm_tasks t 
                          LEFT JOIN tm_users u ON u.user_id = t.active_session_user 
+                         LEFT JOIN tm_users ua ON ua.user_id = t.assigned_to
                          WHERE {$task_where} AND t.parent_task_id IS NULL
                          ORDER BY t.work_session_status DESC, t.created_date ASC";
             $tasks = $this->db->query($task_sql)->result_array();
@@ -176,11 +175,13 @@ class Story extends CI_Controller
             $parent_ids = array_column($tasks, 'task_id');
             $subtasks_by_parent = [];
             if (!empty($parent_ids)) {
-                $sub_sql = "SELECT t.*, u.name as active_worker_name,
+                $sub_sql = "SELECT t.*, u.name as active_worker_name, ua.name as assignee_name,
                                 (SELECT started_at FROM tm_task_sessions WHERE task_id=t.task_id AND ended_at IS NULL AND status_flag='Active' LIMIT 1) as open_session_start,
-                                COALESCE((SELECT SUM(hours) FROM tm_time_logs WHERE task_id=t.task_id AND status_flag='Active'), 0) as logged_hours
+                                COALESCE((SELECT SUM(hours) FROM tm_time_logs WHERE task_id=t.task_id AND status_flag='Active'), 0) as logged_hours,
+                                (SELECT COUNT(*) FROM tm_attachments WHERE task_id=t.task_id AND status_flag='Active') as proof_count
                              FROM tm_tasks t 
                              LEFT JOIN tm_users u ON u.user_id = t.active_session_user 
+                             LEFT JOIN tm_users ua ON ua.user_id = t.assigned_to
                              WHERE t.parent_task_id IN (" . implode(',', $parent_ids) . ") AND t.status_flag='Active'
                              ORDER BY t.created_date ASC";
                 $sub_res = $this->db->query($sub_sql)->result_array();

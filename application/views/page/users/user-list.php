@@ -171,12 +171,12 @@
             <input type="text" name="name" class="form-control" required placeholder="e.g. John Smith">
           </div>
           <div class="form-group"><label>Email Address <span class="text-danger">*</span></label>
-            <input type="email" name="email" class="form-control" required placeholder="user@example.com">
+            <input type="email" name="email" class="form-control" required placeholder="user@example.com" autocomplete="off">
           </div>
           <div class="form-group">
             <label>Password <span class="text-danger">*</span></label>
             <div class="input-group">
-              <input type="password" name="password" id="add_password" class="form-control" required placeholder="Min 6 characters">
+              <input type="password" name="password" id="add_password" class="form-control" required placeholder="Min 6 characters" autocomplete="new-password">
               <span class="input-group-btn">
                 <button type="button" class="btn btn-default btn-toggle-pw" data-target="#add_password"><i class="fa fa-eye"></i></button>
               </span>

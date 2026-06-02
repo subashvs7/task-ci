@@ -11,6 +11,9 @@ class ProjectHandle extends CI_Controller
             $this->session->set_flashdata('alert_error', 'You do not have permission to access Project Handling.');
             redirect_to_fallback();
         }
+
+        $this->output->set_header("Cache-Control: no-store, no-cache, must-revalidate, no-transform, max-age=0, post-check=0, pre-check=0");
+        $this->output->set_header("Pragma: no-cache");
     }
 
     public function index()
