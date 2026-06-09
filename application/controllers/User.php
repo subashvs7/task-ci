@@ -196,6 +196,76 @@ class User extends CI_Controller
         $this->load->view('page/users/user-list', $data);
     }
 
+    public function get_users_ajax()
+    {
+        if (!$this->session->userdata(SESS_HEAD . '_logged_in')) {
+            header('Content-Type: application/json');
+            echo json_encode(array('success' => false, 'message' => 'Unauthorized'));
+            return;
+        }
+
+        $f_search = $this->input->get('search');
+        $f_role   = $this->input->get('f_role');
+        $f_status = $this->input->get('f_status');
+
+        $curr_role = $this->session->userdata(SESS_HEAD . '_role');
+        if ($curr_role === 'admin') {
+            $where = "1=1";
+            $allowed_keys = array_keys(USER_ROLE_OPT);
+        } else {
+            $assignable = get_assignable_roles();
+            $allowed_keys = array_keys($assignable);
+            if (!empty($allowed_keys)) {
+                $where = "role IN ('" . implode("','", $allowed_keys) . "')";
+            } else {
+                $where = "1=0";
+            }
+        }
+        
+        if ($f_search) $where .= " AND (name LIKE '%" . $this->db->escape_like_str($f_search) . "%' OR email LIKE '%" . $this->db->escape_like_str($f_search) . "%')";
+        if ($f_role && in_array($f_role, $allowed_keys)) $where .= " AND role='" . $this->db->escape_str($f_role) . "'";
+        if ($f_status) $where .= " AND status='" . $this->db->escape_str($f_status) . "'";
+
+        $cnt = $this->db->query("SELECT COUNT(*) as cnt FROM tm_users WHERE {$where}")->row_array();
+        $total_records = (int)$cnt['cnt'];
+
+        $offset = (int)$this->input->get('offset');
+
+        $this->load->library('pagination');
+        $config = $this->_pagination_config('user-list', $total_records, 30);
+        $config['page_query_string'] = TRUE;
+        $config['query_string_segment'] = 'offset';
+        $this->pagination->initialize($config);
+
+        $record_list = $this->db->query(
+            "SELECT u.*,
+                (SELECT COUNT(*) FROM tm_tasks t WHERE t.assigned_to=u.user_id AND t.status_flag='Active') as task_count,
+                (SELECT COUNT(*) FROM tm_tasks t WHERE t.assigned_to=u.user_id AND t.status='in_progress' AND t.status_flag='Active') as active_task_count
+             FROM tm_users u WHERE {$where} 
+             ORDER BY FIELD(u.role, 'admin', 'manager', 'team_leader', 'staff'), u.created_date DESC 
+             LIMIT {$offset}, 30"
+        )->result_array();
+        $pagination = $this->pagination->create_links();
+
+        $data = array(
+            'record_list' => $record_list,
+            'sno' => $offset,
+            'pagination' => $pagination,
+            'total_records' => $total_records,
+            's_url' => 'user-list'
+        );
+
+        $html = $this->load->view('page/users/user-list-rows', $data, TRUE);
+
+        header('Content-Type: application/json');
+        echo json_encode(array(
+            'success' => true,
+            'html' => $html,
+            'pagination' => $pagination,
+            'total_records' => $total_records
+        ));
+    }
+
     private function _pagination_config($url, $total, $per_page)
     {
         return array(

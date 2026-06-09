@@ -545,7 +545,42 @@ class General extends CI_Controller
         ));
     }
 
-    // -------------------------------------------------------------------------
+    public function get_active_projects()
+    {
+        $this->_auth();
+        header('Content-Type: application/json');
+        $projects = $this->db->query("SELECT project_id, name FROM tm_projects WHERE status_flag='Active' ORDER BY name")->result_array();
+        echo json_encode(array('success' => true, 'projects' => $projects));
+    }
+
+    public function get_epics_by_project()
+    {
+        $this->_auth();
+        header('Content-Type: application/json');
+        $project_id = (int)$this->input->get('project_id');
+        $epics = $this->db->query("
+            SELECT e.epic_id, e.name, e.project_id, e.created_by, u.name as creator_name 
+            FROM tm_epics e 
+            LEFT JOIN tm_users u ON u.user_id = e.created_by 
+            WHERE e.status_flag='Active' AND e.project_id = ? 
+            ORDER BY e.name
+        ", array($project_id))->result_array();
+        echo json_encode(array('success' => true, 'epics' => $epics));
+     }
+    public function get_stories_by_epic()
+    {
+        $this->_auth();
+        header('Content-Type: application/json');
+        $epic_id = (int)$this->input->get('epic_id');
+        $stories = $this->db->query("
+            SELECT story_id, name, project_id, epic_id 
+            FROM tm_stories 
+            WHERE status_flag='Active' AND epic_id = ? 
+            ORDER BY name
+        ", array($epic_id))->result_array();
+        echo json_encode(array('success' => true, 'stories' => $stories));
+    }
+     // -------------------------------------------------------------------------
     // One-Time Safe Database Schema Migration
     // -------------------------------------------------------------------------
 

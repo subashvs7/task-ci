@@ -90,7 +90,7 @@ class Story extends CI_Controller
 
         $f_project = $this->input->get('project_id');
         $f_epic    = $this->input->get('epic_id');
-        $f_status  = $this->input->get('f_status');
+        $f_creator = $this->input->get('creator_id');
 
         $this->load->library('pagination');
         $where = "s.status_flag='Active'";
@@ -103,7 +103,7 @@ class Story extends CI_Controller
 
         if ($f_project) $where .= " AND s.project_id=" . (int)$f_project;
         if ($f_epic)    $where .= " AND s.epic_id=" . (int)$f_epic;
-        if ($f_status)  $where .= " AND s.status='" . $this->db->escape_str($f_status) . "'";
+        if ($f_creator) $where .= " AND s.created_by=" . (int)$f_creator;
 
         $cnt = $this->db->query("SELECT COUNT(*) as cnt FROM tm_user_stories s WHERE {$where}")->row_array();
         $data['total_records'] = (int)$cnt['cnt'];
@@ -212,9 +212,118 @@ class Story extends CI_Controller
         $data['users_list']    = $this->db->query("SELECT user_id, name FROM tm_users WHERE status='Active' ORDER BY name")->result_array();
         $data['f_project']     = $f_project;
         $data['f_epic']        = $f_epic;
-        $data['f_status']      = $f_status;
+        $data['f_creator']     = $f_creator;
 
         $this->load->view('page/stories/story-list', $data);
+    }
+
+    public function get_stories_ajax()
+    {
+        if (!$this->session->userdata(SESS_HEAD . '_logged_in')) {
+            header('Content-Type: application/json');
+            echo json_encode(array('success' => false, 'message' => 'Unauthorized'));
+            return;
+        }
+
+        $f_project = $this->input->get('project_id');
+        $f_epic    = $this->input->get('epic_id');
+        $f_creator = $this->input->get('creator_id');
+
+        $where = "s.status_flag='Active'";
+        if ($f_project) $where .= " AND s.project_id=" . (int)$f_project;
+        if ($f_epic)    $where .= " AND s.epic_id=" . (int)$f_epic;
+        if ($f_creator) $where .= " AND s.created_by=" . (int)$f_creator;
+
+        $cnt = $this->db->query("SELECT COUNT(*) as cnt FROM tm_user_stories s WHERE {$where}")->row_array();
+        $total_records = (int)$cnt['cnt'];
+
+        $offset = (int)$this->input->get('offset');
+
+        $this->load->library('pagination');
+        $config = $this->_pagination_config('story-list', $total_records, 10);
+        $config['page_query_string'] = TRUE;
+        $config['query_string_segment'] = 'offset';
+        $this->pagination->initialize($config);
+
+        $sql = "SELECT s.*, p.name as project_name, p.created_by as project_creator, e.name as epic_name, e.created_by as epic_creator, e.estimated_time as epic_estimated_time, u.name as assignee_name, uc.name as creator_name,
+                    (SELECT COUNT(*) FROM tm_tasks WHERE story_id=s.story_id AND status_flag='Active') as task_count,
+                    COALESCE((SELECT SUM(estimated_hours) FROM tm_tasks WHERE story_id=s.story_id AND status_flag='Active'), 0) as calculated_time_hours
+                FROM tm_user_stories s
+                LEFT JOIN tm_projects p ON p.project_id = s.project_id
+                LEFT JOIN tm_epics e ON e.epic_id = s.epic_id
+                LEFT JOIN tm_users u ON u.user_id = s.assignee_id
+                LEFT JOIN tm_users uc ON uc.user_id = s.created_by
+                WHERE {$where}
+                ORDER BY s.created_date DESC
+                LIMIT {$offset}, 10";
+        $record_list = $this->db->query($sql)->result_array();
+
+        // Fetch sub-tasks for these stories
+        $story_ids = array_column($record_list, 'story_id');
+        $tasks_by_story = [];
+        if (!empty($story_ids)) {
+            $task_where = "t.story_id IN (" . implode(',', $story_ids) . ") AND t.status_flag='Active'";
+            
+            $task_sql = "SELECT t.*, u.name as active_worker_name, ua.name as assignee_name,
+                            (SELECT started_at FROM tm_task_sessions WHERE task_id=t.task_id AND ended_at IS NULL AND status_flag='Active' LIMIT 1) as open_session_start,
+                            COALESCE((SELECT SUM(hours) FROM tm_time_logs WHERE task_id=t.task_id AND status_flag='Active'), 0) as logged_hours,
+                            (SELECT COUNT(*) FROM tm_attachments WHERE task_id=t.task_id AND status_flag='Active') as proof_count
+                         FROM tm_tasks t 
+                         LEFT JOIN tm_users u ON u.user_id = t.active_session_user 
+                         LEFT JOIN tm_users ua ON ua.user_id = t.assigned_to
+                         WHERE {$task_where} AND t.parent_task_id IS NULL
+                         ORDER BY t.work_session_status DESC, t.created_date ASC";
+            $tasks = $this->db->query($task_sql)->result_array();
+
+            $parent_ids = array_column($tasks, 'task_id');
+            $subtasks_by_parent = [];
+            if (!empty($parent_ids)) {
+                $sub_sql = "SELECT t.*, u.name as active_worker_name, ua.name as assignee_name,
+                                (SELECT started_at FROM tm_task_sessions WHERE task_id=t.task_id AND ended_at IS NULL AND status_flag='Active' LIMIT 1) as open_session_start,
+                                COALESCE((SELECT SUM(hours) FROM tm_time_logs WHERE task_id=t.task_id AND status_flag='Active'), 0) as logged_hours,
+                                (SELECT COUNT(*) FROM tm_attachments WHERE task_id=t.task_id AND status_flag='Active') as proof_count
+                             FROM tm_tasks t 
+                             LEFT JOIN tm_users u ON u.user_id = t.active_session_user 
+                             LEFT JOIN tm_users ua ON ua.user_id = t.assigned_to
+                             WHERE t.parent_task_id IN (" . implode(',', $parent_ids) . ") AND t.status_flag='Active'
+                             ORDER BY t.created_date ASC";
+                $sub_res = $this->db->query($sub_sql)->result_array();
+                foreach ($sub_res as $sub) {
+                    $subtasks_by_parent[$sub['parent_task_id']][] = $sub;
+                }
+            }
+
+            foreach ($tasks as &$task) {
+                $task['sub_tasks'] = isset($subtasks_by_parent[$task['task_id']]) ? $subtasks_by_parent[$task['task_id']] : [];
+                $task['checklist'] = [];
+            }
+
+            foreach ($tasks as $t) {
+                $tasks_by_story[$t['story_id']][] = $t;
+            }
+        }
+        foreach ($record_list as &$st) {
+            $st['tasks_list'] = isset($tasks_by_story[$st['story_id']]) ? $tasks_by_story[$st['story_id']] : [];
+        }
+
+        $pagination = $this->pagination->create_links();
+
+        $data = array(
+            'record_list' => $record_list,
+            'sno' => $offset,
+            'pagination' => $pagination,
+            'total_records' => $total_records
+        );
+
+        $html = $this->load->view('page/stories/story-list-rows', $data, TRUE);
+
+        header('Content-Type: application/json');
+        echo json_encode(array(
+            'success' => true,
+            'html' => $html,
+            'pagination' => $pagination,
+            'total_records' => $total_records
+        ));
     }
 
     private function _pagination_config($url, $total, $per_page)

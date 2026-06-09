@@ -169,7 +169,9 @@
                   <i class="fa fa-file-pdf-o text-danger"></i> Docs
                 </button>
               <?php else: ?>
-                -
+                <button type="button" class="btn btn-xs btn-default btn-view-docs" data-docs="[]" data-id="<?php echo $p['project_id']; ?>" style="border: 1px dashed #7f8c8d; color: #7f8c8d; background: transparent;" title="Add Document">
+                  <i class="fa fa-plus"></i> Add
+                </button>
               <?php endif; ?>
             </td>
             <td style="min-width:120px;">

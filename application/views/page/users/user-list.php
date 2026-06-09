@@ -35,11 +35,8 @@
     <div class="box-body">
       <form method="get" action="<?php echo site_url($s_url) ?>">
         <div class="row">
-          <div class="col-md-4"><div class="form-group"><label>Search</label>
-            <input type="text" name="search" class="form-control" placeholder="Name or email..." value="<?php echo htmlspecialchars($f_search ?? ''); ?>">
-          </div></div>
-          <div class="col-md-3"><div class="form-group"><label>Role</label>
-            <select name="f_role" class="form-control">
+          <div class="col-md-5"><div class="form-group"><label>Role</label>
+            <select name="f_role" id="filter_user_role" class="form-control select2">
               <option value="">All Roles</option>
               <?php 
               $curr_role = $this->session->userdata(SESS_HEAD . '_role');
@@ -50,20 +47,15 @@
               <?php endforeach; ?>
             </select>
           </div></div>
-          <div class="col-md-3"><div class="form-group"><label>Status</label>
-            <select name="f_status" class="form-control">
+          <div class="col-md-5"><div class="form-group"><label>Status</label>
+            <select name="f_status" id="filter_user_status" class="form-control select2">
               <option value="">All Status</option>
               <option value="Active"   <?php echo ($f_status=='Active')  ?'selected':''; ?>>Active</option>
               <option value="Inactive" <?php echo ($f_status=='Inactive')?'selected':''; ?>>Inactive</option>
             </select>
           </div></div>
           <div class="col-md-2" style="padding-top:25px;">
-            <button type="submit" class="btn btn-primary btn-block"><i class="fa fa-search"></i> Search</button>
-          </div>
-        </div>
-        <div class="row">
-          <div class="col-md-2" style="padding-top:5px;">
-            <a href="<?php echo site_url($s_url) ?>" class="btn btn-default btn-block"><i class="fa fa-times"></i> Clear</a>
+            <button type="button" id="btn_reset_filters" class="btn btn-default btn-block"><i class="fa fa-refresh"></i> Reset</button>
           </div>
         </div>
       </form>
@@ -91,64 +83,8 @@
             <th style="width:100px;">Actions</th>
           </tr>
         </thead>
-        <tbody>
-          <?php if (empty($record_list)): ?>
-          <tr><td colspan="6" class="text-center text-muted" style="padding:30px;">No users found.</td></tr>
-          <?php else: ?>
-          <?php foreach ($record_list as $j => $u):
-            $initials = strtoupper(implode('', array_map(function($w){ return isset($w[0]) ? $w[0] : ''; }, array_slice(explode(' ', $u['name']), 0, 2))));
-            $avatarClass = 'ua-' . ($u['role'] ?: 'default');
-          ?>
-          <tr>
-            <td><?php echo $sno + $j + 1; ?></td>
-            <td>
-              <div style="display:flex; align-items:center; gap:10px;">
-                <div class="user-avatar <?php echo $avatarClass; ?>"><?php echo htmlspecialchars($initials); ?></div>
-                <div>
-                  <strong><?php echo htmlspecialchars($u['name']); ?></strong>
-                  <?php if ($this->session->userdata(SESS_HEAD.'_user_id') == $u['user_id']): ?>
-                    <span class="label label-primary" style="font-size:9px;">You</span>
-                  <?php endif; ?>
-                  <br><small class="text-muted"><?php echo htmlspecialchars($u['email']); ?></small>
-                </div>
-              </div>
-            </td>
-            <td>
-              <?php $rc = array('admin'=>'danger','manager'=>'warning','team_leader'=>'info','staff'=>'default'); $rl = USER_ROLE_OPT; ?>
-              <span class="label label-<?php echo isset($rc[$u['role']])?$rc[$u['role']]:'default'; ?>">
-                <?php echo isset($rl[$u['role']]) ? $rl[$u['role']] : $u['role']; ?>
-              </span>
-            </td>
-
-            <td>
-              <span class="label label-<?php echo ($u['status']=='Active')?'success':'danger'; ?>">
-                <i class="fa fa-<?php echo ($u['status']=='Active')?'check':'ban'; ?>"></i> <?php echo $u['status']; ?>
-              </span>
-            </td>
-            <td style="font-size:12px;"><?php echo date('d-M-Y', strtotime($u['created_date'])); ?></td>
-            <td style="white-space:nowrap;">
-              <button class="btn btn-xs btn-warning btn-edit-user"
-                data-id="<?php echo $u['user_id']; ?>"
-                data-name="<?php echo htmlspecialchars($u['name'], ENT_QUOTES); ?>"
-                data-email="<?php echo htmlspecialchars($u['email'], ENT_QUOTES); ?>"
-                data-role="<?php echo $u['role']; ?>"
-                title="Edit"><i class="fa fa-pencil"></i>
-              </button>
-              <form method="post" action="<?php echo site_url($s_url . '/' . $sno) ?>" style="display:inline;">
-                <input type="hidden" name="mode" value="ToggleStatus">
-                <input type="hidden" name="user_id" value="<?php echo $u['user_id']; ?>">
-                <?php if ($this->session->userdata(SESS_HEAD.'_user_id') != $u['user_id']): ?>
-                <button type="submit" class="btn btn-xs <?php echo ($u['status']=='Active')?'btn-default':'btn-success'; ?>"
-                  title="<?php echo ($u['status']=='Active')?'Deactivate':'Activate'; ?>"
-                  onclick="return confirm('<?php echo ($u['status']=='Active')?'Deactivate':'Activate'; ?> <?php echo htmlspecialchars($u['name'], ENT_QUOTES); ?>?')">
-                  <i class="fa fa-<?php echo ($u['status']=='Active')?'ban':'check'; ?>"></i>
-                </button>
-                <?php endif; ?>
-              </form>
-            </td>
-          </tr>
-          <?php endforeach; ?>
-          <?php endif; ?>
+        <tbody id="user_list_tbody">
+          <?php include('user-list-rows.php'); ?>
         </tbody>
       </table>
     </div>
@@ -252,4 +188,9 @@
   </div>
 </div>
 
+<script>
+window.initialFilterSearch = '<?php echo $f_search ?: ""; ?>';
+window.initialFilterRole = '<?php echo $f_role ?: ""; ?>';
+window.initialFilterStatus = '<?php echo $f_status ?: ""; ?>';
+</script>
 <?php include_once(VIEWPATH . 'inc/footer.php'); ?>

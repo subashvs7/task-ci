@@ -168,7 +168,6 @@
             <span style="display: flex; align-items: center; color: #555;"><span style="width: 12px; height: 12px; border-radius: 3px; background: #3498db; margin-right: 5px;"></span> Task</span>
             <span style="display: flex; align-items: center; color: #555;"><span style="width: 12px; height: 12px; border-radius: 3px; background: #e67e22; margin-right: 5px;"></span> Epic</span>
             <span style="display: flex; align-items: center; color: #555;"><span style="width: 12px; height: 12px; border-radius: 3px; background: #1abc9c; margin-right: 5px;"></span> Story</span>
-            <span style="display: flex; align-items: center; color: #555;"><span style="width: 12px; height: 12px; border-radius: 3px; background: #7f8c8d; margin-right: 5px;"></span> Sub-task</span>
             <span style="display: flex; align-items: center; color: #555;"><span style="width: 12px; height: 12px; border-radius: 3px; background: #e74c3c; margin-right: 5px;"></span> Due Date</span>
           </div>
         </div>
@@ -183,7 +182,7 @@
         <div class="box-header with-border">
           <h3 class="box-title"><i class="fa fa-folder-open"></i> Recent Projects</h3>
           <div class="box-tools pull-right">
-            <a href="<?php echo site_url('project-list') ?>" class="btn btn-box-tool btn-xs btn-primary">View All</a>
+            <a href="<?php echo site_url('project-list') ?>" class="btn btn-xs btn-primary" style="color:#fff; font-weight:bold;">View All</a>
           </div>
         </div>
         <div class="box-body no-padding" style="flex: 1; overflow-y: auto;">
@@ -235,7 +234,7 @@
         <div class="box-header with-border">
           <h3 class="box-title"><i class="fa fa-tasks"></i> Recent Tasks</h3>
           <div class="box-tools pull-right">
-            <a href="<?php echo site_url('task-list') ?>" class="btn btn-box-tool btn-xs btn-success">View All</a>
+            <a href="<?php echo site_url('task-list') ?>" class="btn btn-xs btn-success" style="color:#fff; font-weight:bold;">View All</a>
           </div>
         </div>
         <div class="box-body no-padding" style="flex: 1; overflow-y: auto;">
@@ -245,11 +244,12 @@
                 <th>Task</th>
                 <th>Status</th>
                 <th>Assignee</th>
+                <th style="text-align:center;">Work Status</th>
               </tr>
             </thead>
             <tbody>
               <?php if (empty($recent_tasks)): ?>
-              <tr><td colspan="3" class="text-center text-muted">No tasks yet.</td></tr>
+              <tr><td colspan="4" class="text-center text-muted">No tasks yet.</td></tr>
               <?php else: ?>
               <?php foreach ($recent_tasks as $t): ?>
               <tr>
@@ -260,6 +260,29 @@
                 </td>
                 <td><span class="badge badge-status-<?php echo $t['status']; ?>" style="font-size:10px;"><?php $sts = TASK_STATUS_OPT; echo isset($sts[$t['status']]) ? $sts[$t['status']] : $t['status']; ?></span></td>
                 <td style="font-size:11px;"><?php echo htmlspecialchars($t['assignee_name'] ?: '-'); ?></td>
+                <td style="white-space:nowrap; text-align:center; min-width:90px; padding:6px 4px;">
+                  <?php 
+                    $is_done_closed = in_array(strtolower($t['status']), ['done', 'closed']);
+                    $is_active_session = ($t['work_session_status'] === 'active');
+                    $is_my_session = ($is_active_session && $t['active_session_user'] == $this->session->userdata(SESS_HEAD . '_user_id'));
+                  ?>
+                  <?php if ($is_done_closed): ?>
+                    <span class="label label-success" style="font-size:10px;"><i class="fa fa-check-circle"></i> Completed</span>
+                  <?php elseif ($is_my_session): ?>
+                    <button class="btn btn-xs btn-danger btn-task-session"
+                      data-task="<?php echo $t['task_id']; ?>"
+                      data-action="stop"
+                      style="font-size:10px; font-weight:600; padding:2px 7px;">
+                      <i class="fa fa-stop-circle"></i> Stop Work
+                    </button>
+                    <div style="font-size:11px; color:#1a1a1a; margin-top:2px; font-weight:700;"><i class="fa fa-circle fa-beat" style="font-size:6px; margin-right:2px; color:#e74c3c;"></i>Working</div>
+                  <?php elseif ($is_active_session): ?>
+                    <span class="label label-warning" style="font-size:10px;"><i class="fa fa-spinner fa-spin"></i> Working</span>
+                    <div style="font-size:12px; color:#1a1a1a; margin-top:2px; font-weight:700;"><?php echo htmlspecialchars($t['active_worker_name']); ?></div>
+                  <?php else: ?>
+                    <span style="font-size:10px; color:#95a5a6;"><i class="fa fa-circle-o"></i> Not Started</span>
+                  <?php endif; ?>
+                </td>
               </tr>
               <?php endforeach; ?>
               <?php endif; ?>

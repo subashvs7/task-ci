@@ -44,37 +44,39 @@ class Dashboard extends CI_Controller
         $data['total_tasks'] = $r['cnt'];
 
         // Overdue tasks
-        $r = $this->db->query("SELECT COUNT(*) as cnt FROM tm_tasks WHERE status_flag='Active' AND story_id IS NULL AND due_date < CURDATE() AND status NOT IN ('done','closed')")->row_array();
+        $r = $this->db->query("SELECT COUNT(*) as cnt FROM tm_tasks WHERE status_flag='Active' AND due_date < CURDATE() AND status NOT IN ('done','closed')")->row_array();
         $data['overdue_tasks'] = $r['cnt'];
 
         // My tasks (assigned to me)
-        $r = $this->db->query("SELECT COUNT(*) as cnt FROM tm_tasks WHERE status_flag='Active' AND story_id IS NULL AND assigned_to = ?", array($uid))->row_array();
+        $r = $this->db->query("SELECT COUNT(*) as cnt FROM tm_tasks WHERE status_flag='Active' AND assigned_to = ?", array($uid))->row_array();
         $data['my_tasks'] = $r['cnt'];
 
         // My open tasks
-        $r = $this->db->query("SELECT COUNT(*) as cnt FROM tm_tasks WHERE status_flag='Active' AND story_id IS NULL AND assigned_to = ? AND status NOT IN ('done','closed')", array($uid))->row_array();
+        $r = $this->db->query("SELECT COUNT(*) as cnt FROM tm_tasks WHERE status_flag='Active' AND assigned_to = ? AND status NOT IN ('done','closed')", array($uid))->row_array();
         $data['my_open_tasks'] = $r['cnt'];
 
         // Done tasks
-        $r = $this->db->query("SELECT COUNT(*) as cnt FROM tm_tasks WHERE status_flag='Active' AND story_id IS NULL AND status IN ('done','closed')")->row_array();
+        $r = $this->db->query("SELECT COUNT(*) as cnt FROM tm_tasks WHERE status_flag='Active' AND status IN ('done','closed')")->row_array();
         $data['done_tasks'] = $r['cnt'];
 
         // Recent tasks (last 10)
-        $recent_where = "t.status_flag = 'Active' AND t.story_id IS NULL";
+        $recent_where = "t.status_flag = 'Active'";
         if ($role === 'team_leader') {
             $recent_where .= " AND (t.assigned_to = {$uid} OR t.created_by = {$uid})";
         } elseif ($role === 'staff') {
             $recent_where .= " AND t.assigned_to = {$uid}";
         }
 
-        $sql = "SELECT t.*, p.name as project_name, u.name as assignee_name, ur.name as reporter_name
+        $sql = "SELECT t.*, p.name as project_name, u.name as assignee_name, ur.name as reporter_name,
+                       uw.name as active_worker_name
                 FROM tm_tasks t
                 LEFT JOIN tm_projects p ON p.project_id = t.project_id
                 LEFT JOIN tm_users u ON u.user_id = t.assigned_to
                 LEFT JOIN tm_users ur ON ur.user_id = t.reporter_id
+                LEFT JOIN tm_users uw ON uw.user_id = t.active_session_user
                 WHERE {$recent_where}
-                ORDER BY t.created_date DESC
-                LIMIT 10";
+                ORDER BY (t.work_session_status = 'active') DESC, t.created_date DESC
+                LIMIT 4";
         $data['recent_tasks'] = $this->db->query($sql)->result_array();
 
         // Auth string for projects WITH 'p.' alias
@@ -91,7 +93,7 @@ class Dashboard extends CI_Controller
                     (SELECT COUNT(*) FROM tm_tasks WHERE project_id = p.project_id AND status_flag='Active' AND status='done') as done_count
                 FROM tm_projects p
                 LEFT JOIN tm_users u ON u.user_id = p.created_by
-                WHERE p.status_flag = 'Active' AND $p_auth
+                WHERE p.status_flag = 'Active'
                 ORDER BY p.created_date DESC
                 LIMIT 5";
         $data['recent_projects'] = $this->db->query($sql)->result_array();

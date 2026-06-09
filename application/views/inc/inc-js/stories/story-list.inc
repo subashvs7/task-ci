@@ -32,19 +32,156 @@ jQuery(function ($) {
     });
 
 
+
+
+    // Helper to load epics for a project in Edit modal
+    function loadEditEpics(projectId, selectedEpicId) {
+        var $epicSelect = $('#edit_story_epic');
+        var $modal = $('#editStoryModal');
+        $.ajax({
+            url: '<?php echo site_url("get-epics-by-project"); ?>',
+            type: 'GET',
+            data: { project_id: projectId },
+            dataType: 'json',
+            success: function(res) {
+                if (res.success) {
+                    var html = '<option value="">-- No Epic --</option>';
+                    $.each(res.epics, function(i, e) {
+                        html += '<option value="' + e.epic_id + '" data-creator="' + (e.creator_name || '') + '">' + e.name + '</option>';
+                    });
+                    $epicSelect.html(html);
+                    if (selectedEpicId) {
+                        $epicSelect.val(selectedEpicId);
+                    }
+                    $epicSelect.select2({
+                        width: '100%',
+                        dropdownParent: $modal
+                    }).trigger('change.select2');
+                }
+            }
+        });
+    }
+
+    // Edit Project change listener
+    $(document).on('change', '#edit_story_project', function(e, data) {
+        if (data && data.programmatic) {
+            return;
+        }
+        var projectId = $(this).val();
+        var $epicSelect = $('#edit_story_epic');
+        $epicSelect.html('<option value="">-- No Epic --</option>').trigger('change.select2');
+        if (projectId) {
+            loadEditEpics(projectId, null);
+        }
+    });
+
     $(document).on('click', '.btn-edit-story', function () {
         var $b = $(this);
-        $('#edit_story_id').val($b.data('id'));
-        $('#edit_story_name').val($b.data('name'));
-        $('#edit_story_desc').val($b.data('description'));
-        $('#edit_story_status').val($b.data('status'));
-        $('#edit_story_priority').val($b.data('priority'));
-        $('#edit_story_points').val($b.data('points'));
-        $('#edit_story_sprint').val($b.data('sprint'));
-        $('#edit_story_assignee').val($b.data('assignee')).trigger('change');
-        $('#edit_story_project').val($b.data('project')).trigger('change');
-        $('#edit_story_epic').val($b.data('epic')).trigger('change');
+        var storyId = $b.data('id');
+        var name = $b.data('name');
+        var desc = $b.data('description');
+        var status = $b.data('status');
+        var priority = $b.data('priority');
+        var assignee = $b.data('assignee');
+        var projectId = $b.data('project');
+        var epicId = $b.data('epic');
+
+        $('#edit_story_id').val(storyId);
+        $('#edit_story_name').val(name);
+        $('#edit_story_desc').val(desc);
+        $('#edit_story_status').val(status);
+        $('#edit_story_priority').val(priority);
+        $('#edit_story_assignee').val(assignee).trigger('change');
+
+        var $projSelect = $('#edit_story_project');
+        var $epicSelect = $('#edit_story_epic');
+
+        $projSelect.html('<option value="">-- Select Project --</option>').trigger('change.select2');
+        $epicSelect.html('<option value="">-- No Epic --</option>').trigger('change.select2');
+
+        // Load projects via AJAX
+        $.ajax({
+            url: '<?php echo site_url("get-active-projects"); ?>',
+            type: 'GET',
+            dataType: 'json',
+            success: function(res) {
+                if (res.success) {
+                    var html = '<option value="">-- Select Project --</option>';
+                    $.each(res.projects, function(i, p) {
+                        html += '<option value="' + p.project_id + '">' + p.name + '</option>';
+                    });
+                    $projSelect.html(html);
+                    $projSelect.val(projectId).trigger('change', [{ programmatic: true }]);
+                    $projSelect.select2({
+                        width: '100%',
+                        dropdownParent: $('#editStoryModal')
+                    });
+
+                    if (projectId) {
+                        loadEditEpics(projectId, epicId);
+                    }
+                }
+            }
+        });
+
         $('#editStoryModal').modal('show');
+    });
+
+    // Add Story Modal AJAX loading
+    $(document).on('show.bs.modal', '#addStoryModal', function() {
+        var $projSelect = $('#add_story_project');
+        var $epicSelect = $('#add_epic_select');
+
+        $projSelect.html('<option value="">-- Select Project --</option>').trigger('change.select2');
+        $epicSelect.html('<option value="">-- No Epic --</option>').trigger('change.select2');
+
+        $.ajax({
+            url: '<?php echo site_url("get-active-projects"); ?>',
+            type: 'GET',
+            dataType: 'json',
+            success: function(res) {
+                if (res.success) {
+                    var html = '<option value="">-- Select Project --</option>';
+                    $.each(res.projects, function(i, p) {
+                        html += '<option value="' + p.project_id + '">' + p.name + '</option>';
+                    });
+                    $projSelect.html(html);
+                    $projSelect.select2({
+                        width: '100%',
+                        dropdownParent: $('#addStoryModal')
+                    }).trigger('change.select2');
+                }
+            }
+        });
+    });
+
+    // Add Project change listener
+    $(document).on('change', '#add_story_project', function() {
+        var projectId = $(this).val();
+        var $epicSelect = $('#add_epic_select');
+        $epicSelect.html('<option value="">-- No Epic --</option>').trigger('change.select2');
+
+        if (projectId) {
+            $.ajax({
+                url: '<?php echo site_url("get-epics-by-project"); ?>',
+                type: 'GET',
+                data: { project_id: projectId },
+                dataType: 'json',
+                success: function(res) {
+                    if (res.success) {
+                        var html = '<option value="">-- No Epic --</option>';
+                        $.each(res.epics, function(i, e) {
+                            html += '<option value="' + e.epic_id + '" data-creator="' + (e.creator_name || '') + '">' + e.name + '</option>';
+                        });
+                        $epicSelect.html(html);
+                        $epicSelect.select2({
+                            width: '100%',
+                            dropdownParent: $('#addStoryModal')
+                        }).trigger('change.select2');
+                    }
+                }
+            });
+        }
     });
 
     $(document).on('click', '.del_record', function () {
@@ -329,6 +466,163 @@ jQuery(function ($) {
                 uploadProofFile(files[i]);
             }
         }
+    });
+
+    // ── Page Filter AJAX loading ─────────────────────────────────────
+    function loadFilterEpics(projectId, selectedEpicId, callback) {
+        var $epicSelect = $('#filter_story_epic');
+        $.ajax({
+            url: '<?php echo site_url("get-epics-by-project"); ?>',
+            type: 'GET',
+            data: { project_id: projectId },
+            dataType: 'json',
+            success: function(res) {
+                if (res.success) {
+                    var html = '<option value="">All Epics</option>';
+                    $.each(res.epics, function(i, e) {
+                        html += '<option value="' + e.epic_id + '">' + e.name + '</option>';
+                    });
+                    $epicSelect.html(html);
+                    if (selectedEpicId) {
+                        $epicSelect.val(selectedEpicId);
+                    }
+                    $epicSelect.trigger('change.select2');
+                    if (typeof callback === 'function') {
+                        callback();
+                    }
+                }
+            }
+        });
+    }
+
+    // Helper to load filtered stories via AJAX
+    function loadFilteredStories(offset) {
+        var projectId = $('#filter_story_project').val();
+        var epicId = $('#filter_story_epic').val();
+        var creatorId = $('#filter_story_creator').val();
+        
+        // Show loading state in tbody
+        $('#story_list_tbody').html('<tr><td colspan="11" class="text-center text-muted" style="padding:30px;"><i class="fa fa-spinner fa-spin"></i> Loading stories...</td></tr>');
+
+        $.ajax({
+            url: '<?php echo site_url("get-stories-ajax"); ?>',
+            type: 'GET',
+            data: {
+                project_id: projectId,
+                epic_id: epicId,
+                creator_id: creatorId,
+                offset: offset || 0
+            },
+            dataType: 'json',
+            success: function(res) {
+                if (res.success) {
+                    $('#story_list_tbody').html(res.html);
+                    $('.box-footer.clearfix').html(res.pagination);
+                    bindPaginationClicks();
+                } else {
+                    $('#story_list_tbody').html('<tr><td colspan="11" class="text-center text-danger" style="padding:30px;">Failed to load stories.</td></tr>');
+                }
+            },
+            error: function() {
+                $('#story_list_tbody').html('<tr><td colspan="11" class="text-center text-danger" style="padding:30px;">Error occurred while loading stories.</td></tr>');
+            }
+        });
+    }
+
+    // Bind AJAX pagination clicks
+    function bindPaginationClicks() {
+        $('.box-footer.clearfix').find('a.page-link').off('click').on('click', function(e) {
+            e.preventDefault();
+            var url = $(this).attr('href');
+            if (url) {
+                var urlObj = new URL(url, window.location.origin);
+                var offset = urlObj.searchParams.get('offset') || 0;
+                loadFilteredStories(offset);
+            }
+        });
+    }
+
+    // Load active projects on page load
+    (function initFilterDropdowns() {
+        var $projSelect = $('#filter_story_project');
+        var $epicSelect = $('#filter_story_epic');
+        
+        $projSelect.html('<option value="">All Projects</option>').trigger('change.select2');
+        $epicSelect.html('<option value="">All Epics</option>').trigger('change.select2');
+
+        $.ajax({
+            url: '<?php echo site_url("get-active-projects"); ?>',
+            type: 'GET',
+            dataType: 'json',
+            success: function(res) {
+                if (res.success) {
+                    var html = '<option value="">All Projects</option>';
+                    $.each(res.projects, function(i, p) {
+                        html += '<option value="' + p.project_id + '">' + p.name + '</option>';
+                    });
+                    $projSelect.html(html);
+
+                    var initialProj = window.initialFilterProject;
+                    var initialEpic = window.initialFilterEpic;
+
+                    if (initialProj) {
+                        $projSelect.val(initialProj).trigger('change', [{ programmatic: true }]);
+                        $projSelect.trigger('change.select2');
+                        loadFilterEpics(initialProj, initialEpic);
+                    } else {
+                        $projSelect.trigger('change.select2');
+                    }
+                }
+            }
+        });
+        bindPaginationClicks();
+    })();
+
+    // Filter Project change listener
+    $(document).on('change', '#filter_story_project', function(e, data) {
+        if (data && data.programmatic) {
+            return;
+        }
+        var projectId = $(this).val();
+        var $epicSelect = $('#filter_story_epic');
+        $epicSelect.html('<option value="">All Epics</option>').trigger('change.select2');
+        
+        if (projectId) {
+            loadFilterEpics(projectId, null, function() {
+                loadFilteredStories(0);
+            });
+        } else {
+            loadFilteredStories(0);
+        }
+    });
+
+    // Filter Epic change listener
+    $(document).on('change', '#filter_story_epic', function(e, data) {
+        if (data && data.programmatic) {
+            return;
+        }
+        loadFilteredStories(0);
+    });
+
+    // Filter Creator change listener
+    $(document).on('change', '#filter_story_creator', function(e, data) {
+        if (data && data.programmatic) {
+            return;
+        }
+        loadFilteredStories(0);
+    });
+
+    // Reset Filters listener
+    $(document).on('click', '#btn_reset_filters', function() {
+        $('#filter_story_project').val('').trigger('change', [{ programmatic: true }]);
+        $('#filter_story_epic').html('<option value="">All Epics</option>').val('').trigger('change', [{ programmatic: true }]);
+        $('#filter_story_creator').val('').trigger('change', [{ programmatic: true }]);
+        
+        $('#filter_story_project').trigger('change.select2');
+        $('#filter_story_epic').trigger('change.select2');
+        $('#filter_story_creator').trigger('change.select2');
+
+        loadFilteredStories(0);
     });
 
 });

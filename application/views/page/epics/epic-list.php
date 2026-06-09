@@ -35,26 +35,23 @@ function format_hours($decimal_hours) {
         <div class="row">
           <div class="col-md-4">
             <div class="form-group"><label>Project</label>
-              <select name="project_id" class="form-control select2">
+              <select name="project_id" id="filter_epic_project" class="form-control select2">
                 <option value="">All Projects</option>
-                <?php foreach ($projects_list as $p): ?>
-                <option value="<?php echo $p['project_id']; ?>" <?php echo ($f_project==$p['project_id'])?'selected':''; ?>><?php echo htmlspecialchars($p['name']); ?></option>
-                <?php endforeach; ?>
               </select>
             </div>
           </div>
           <div class="col-md-3">
             <div class="form-group"><label>Status</label>
-              <select name="f_status" class="form-control">
+              <select name="f_status" id="filter_epic_status" class="form-control select2">
                 <option value="">All Status</option>
-                <?php foreach (array('open'=>'Open','in_progress'=>'In Progress','done'=>'Done','closed'=>'Closed') as $k=>$v): ?>
+                <?php foreach (array('open'=>'Open','in_progress'=>'Working','done'=>'Done','closed'=>'Closed') as $k=>$v): ?>
                 <option value="<?php echo $k; ?>" <?php echo ($f_status==$k)?'selected':''; ?>><?php echo $v; ?></option>
                 <?php endforeach; ?>
               </select>
             </div>
           </div>
           <div class="col-md-2" style="padding-top:25px;">
-            <button type="submit" class="btn btn-primary btn-block"><i class="fa fa-search"></i> Search</button>
+            <button type="button" id="btn_reset_filters" class="btn btn-default btn-block"><i class="fa fa-refresh"></i> Reset</button>
           </div>
         </div>
       </form>
@@ -73,66 +70,8 @@ function format_hours($decimal_hours) {
         <thead>
           <tr><th>#</th><th>Epic Name</th><th>Project</th><th>Document</th><th>Status / Priority</th><th>Est. Time</th><th>Stories</th><th>Actions</th></tr>
         </thead>
-        <tbody>
-          <?php if (empty($record_list)): ?>
-          <tr><td colspan="8" class="text-center text-muted" style="padding:30px;">No epics found.</td></tr>
-          <?php else: ?>
-          <?php foreach ($record_list as $j => $e): ?>
-          <tr>
-            <td><?php echo $sno + $j + 1; ?></td>
-            <td>
-              <span style="display:inline-block; width:12px; height:12px; background:<?php echo htmlspecialchars($e['color'] ?: '#9b59b6'); ?>; border-radius:50%; margin-right:6px;"></span>
-              <strong><?php echo htmlspecialchars($e['name']); ?></strong>
-              <?php if ($e['description']): ?><br><small class="text-muted"><?php echo htmlspecialchars(mb_substr($e['description'],0,50)); ?></small><?php endif; ?>
-            </td>
-            <td>
-              <?php if ($e['project_id']): ?>
-                <a href="#" class="project-link-modal" data-id="<?php echo $e['project_id']; ?>"><?php echo htmlspecialchars($e['project_name']); ?></a>
-                <button class="btn btn-xs btn-default btn-view-project-modal" data-id="<?php echo $e['project_id']; ?>" style="padding: 1px 3px; border-radius: 3px; font-size: 9px;" title="Quick View Team & Effort"><i class="fa fa-eye"></i></button>
-              <?php else: ?>
-                -
-              <?php endif; ?>
-            </td>
-            <td class="text-center">
-              <?php if (!empty($e['document']) && $e['document'] !== 'null' && $e['document'] !== '[]'): ?>
-                <button type="button" class="btn btn-xs btn-default btn-view-docs" data-docs="<?php echo htmlspecialchars($e['document'], ENT_QUOTES, 'UTF-8'); ?>" data-id="<?php echo $e['epic_id']; ?>" title="View Documents">
-                  <i class="fa fa-file-pdf-o text-danger"></i> Docs
-                </button>
-              <?php else: ?>
-                -
-              <?php endif; ?>
-            </td>
-            <td>
-              <div style="margin-bottom:5px;">
-                <?php $sc=array('open'=>'default','in_progress'=>'success','done'=>'success','closed'=>'danger'); ?>
-                <span class="label label-<?php echo isset($sc[$e['status']])?$sc[$e['status']]:'default'; ?>" style="<?php echo $e['status']=='in_progress' ? 'background-color:#10b981 !important;' : ''; ?>">
-                  <?php echo $e['status'] === 'in_progress' ? 'Working' : ucfirst(str_replace('_',' ',$e['status'])); ?>
-                </span>
-              </div>
-              <div>
-                <span class="badge badge-priority-<?php echo $e['priority']; ?>"><?php $pl=TASK_PRIORITY_OPT; echo isset($pl[$e['priority']])?$pl[$e['priority']]:$e['priority']; ?></span>
-              </div>
-            </td>
-            <td><span class="badge bg-purple"><?php echo format_hours($e['estimated_time'] ? ($e['estimated_time']/60) : 0); ?></span></td>
-            <td><?php echo $e['story_count']; ?> stories</td>
-            <td>
-              <button type="button" class="btn btn-xs btn-warning btn-edit-epic"
-                data-id="<?php echo $e['epic_id']; ?>"
-                data-project="<?php echo $e['project_id']; ?>"
-                data-name="<?php echo htmlspecialchars($e['name'], ENT_QUOTES); ?>"
-                data-description="<?php echo htmlspecialchars($e['description'], ENT_QUOTES); ?>"
-                data-status="<?php echo $e['status']; ?>"
-                data-priority="<?php echo $e['priority']; ?>"
-                data-color="<?php echo htmlspecialchars($e['color'], ENT_QUOTES); ?>"
-                data-eh="<?php echo $e['estimated_time'] ? floor($e['estimated_time'] / 60) : 0; ?>"
-                data-em="<?php echo $e['estimated_time'] ? ($e['estimated_time'] % 60) : 0; ?>">
-                <i class="fa fa-pencil"></i>
-              </button>
-              <button class="btn btn-xs btn-danger del_record" value="<?php echo $e['epic_id']; ?>" data-tbl="tm_epics" data-col="epic_id"><i class="fa fa-trash"></i></button>
-            </td>
-          </tr>
-          <?php endforeach; ?>
-          <?php endif; ?>
+        <tbody id="epic_list_tbody">
+          <?php include('epic-list-rows.php'); ?>
         </tbody>
       </table>
     </div>
@@ -152,11 +91,8 @@ function format_hours($decimal_hours) {
         </div>
         <div class="modal-body">
           <div class="form-group"><label>Project <span class="text-danger">*</span></label>
-            <select name="project_id" class="form-control select2" required>
+            <select name="project_id" id="add_epic_project" class="form-control select2" required>
               <option value="">-- Select Project --</option>
-              <?php foreach ($projects_list as $p): ?>
-              <option value="<?php echo $p['project_id']; ?>"><?php echo htmlspecialchars($p['name']); ?></option>
-              <?php endforeach; ?>
             </select>
           </div>
           <div class="form-group"><label>Epic Name <span class="text-danger">*</span></label>
@@ -229,9 +165,7 @@ function format_hours($decimal_hours) {
         <div class="modal-body">
           <div class="form-group"><label>Project</label>
             <select name="project_id" id="edit_epic_project" class="form-control select2">
-              <?php foreach ($projects_list as $p): ?>
-              <option value="<?php echo $p['project_id']; ?>"><?php echo htmlspecialchars($p['name']); ?></option>
-              <?php endforeach; ?>
+              <option value="">-- Select Project --</option>
             </select>
           </div>
           <div class="form-group"><label>Name <span class="text-danger">*</span></label>
@@ -285,4 +219,8 @@ function format_hours($decimal_hours) {
   </div>
 </div>
 
+<script>
+window.initialFilterProject = '<?php echo $f_project ?: ""; ?>';
+window.initialFilterStatus = '<?php echo $f_status ?: ""; ?>';
+</script>
 <?php include_once(VIEWPATH . 'inc/footer.php'); ?>

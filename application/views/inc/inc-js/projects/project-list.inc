@@ -76,7 +76,7 @@ jQuery(function ($) {
             try { docs = JSON.parse(docs); } catch(e) { docs = []; }
         }
         
-        if (!docs || (Array.isArray(docs) && docs.length === 0)) return;
+        if (!docs) docs = [];
         if (!Array.isArray(docs)) docs = [docs];
         
         var html = '<style>' +
@@ -89,27 +89,66 @@ jQuery(function ($) {
             '.doc-date { font-size: 11px; color: #7f8c8d; margin-top: 2px; }' +
             '.swal2-close { border: 2px solid #e0e0e0 !important; border-radius: 50% !important; width: 32px !important; height: 32px !important; line-height: 28px !important; color: #7f8c8d !important; font-size: 20px !important; transition: all 0.2s !important; margin: 10px 10px 0 0 !important; }' +
             '.swal2-close:hover { border-color: #e74c3c !important; color: #e74c3c !important; background: transparent !important; }' +
+            '.doc-gallery { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 15px; justify-content: center; }' +
+            '.doc-gallery-item { position: relative; width: 110px; height: 110px; border: 1px solid #e0e0e0; border-radius: 8px; background: #fdfdfd; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.2s ease; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.05); text-decoration: none !important; }' +
+            '.doc-gallery-item:hover { border-color: #3498db; box-shadow: 0 4px 10px rgba(52,152,219,0.15); transform: translateY(-2px); background: #fff; }' +
+            '.doc-gallery-icon { font-size: 36px; color: #e74c3c; margin-bottom: 8px; }' +
+            '.doc-gallery-label { font-size: 11px; color: #555; font-weight: 600; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }' +
+            '.doc-gallery-actions { position: absolute; top: 5px; right: 5px; display: flex; gap: 4px; opacity: 0; transition: opacity 0.2s ease; }' +
+            '.doc-gallery-item:hover .doc-gallery-actions { opacity: 1; }' +
+            '.doc-gallery-btn { background: rgba(255,255,255,0.95); border: 1px solid #ddd; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; cursor: pointer; transition: all 0.2s ease; padding: 0; line-height: 1; }' +
+            '.doc-gallery-btn:hover { background: #fff; border-color: #3498db; color: #3498db; }' +
+            '.doc-gallery-btn.btn-delete { color: #e74c3c; }' +
+            '.doc-gallery-btn.btn-delete:hover { background: #e74c3c; color: #fff; border-color: #e74c3c; }' +
+            '.tooltip-inner { max-width: 320px !important; word-break: break-word !important; white-space: normal !important; text-align: center !important; }' +
             '</style>';
         
-        html += '<div style="margin-top:20px;" id="project-docs-container-1">'; // Just a wrapper
-        docs.forEach(function(doc, index) {
-            var ext = (doc.path || '').split('.').pop().toLowerCase();
-            var icon = (['jpg','jpeg','png','gif'].indexOf(ext) > -1) ? 'fa-file-image-o' : (['pdf'].indexOf(ext) > -1 ? 'fa-file-pdf-o' : 'fa-file-o');
-            html += '<div class="doc-item">';
-            html += '  <a href="javascript:void(0);" class="doc-left btn-preview-project-doc" data-file="' + doc.path + '" style="text-decoration:none; flex-grow:1; display:flex; align-items:center;">';
-            html += '    <i class="fa ' + icon + ' doc-icon"></i>';
-            html += '    <div class="doc-meta">';
-            html += '      <span class="doc-title">' + (doc.version ? doc.version.toUpperCase() + ' - ' : '') + (doc.name || 'Document') + '</span>';
-            html += '      <span class="doc-date">' + (doc.date ? '<i class="fa fa-clock-o"></i> ' + doc.date : '') + '</span>';
-            html += '    </div>';
-            html += '  </a>';
-            html += '  <div style="display:flex; align-items:center; gap:10px;">';
-            html += '    <a href="javascript:void(0);" class="btn-preview-project-doc" data-file="' + doc.path + '"><i class="fa fa-eye" style="color:#bdc3c7;"></i></a>';
-            html += '    <a href="javascript:void(0);" class="btn-delete-single-doc" data-id="' + $(this).data('id') + '" data-type="project" data-index="' + index + '"><i class="fa fa-trash text-danger"></i></a>';
-            html += '  </div>';
+        if (docs.length === 0) {
+            html += '<div style="margin-top:20px; text-align:center; padding:30px 10px; color:#95a5a6;" id="project-docs-container-1">';
+            html += '  <i class="fa fa-folder-open-o" style="font-size:48px; color:#bdc3c7; margin-bottom:15px; display:block;"></i>';
+            html += '  <p style="font-size:14px; margin-bottom:0;">No documents uploaded yet.</p>';
             html += '</div>';
-        }.bind(this));
-        html += '</div>';
+        } else if (docs.length <= 3) {
+            html += '<div style="margin-top:20px;" id="project-docs-container-1">';
+            docs.forEach(function(doc, index) {
+                var ext = (doc.path || '').split('.').pop().toLowerCase();
+                var icon = (['jpg','jpeg','png','gif'].indexOf(ext) > -1) ? 'fa-file-image-o' : (['pdf'].indexOf(ext) > -1 ? 'fa-file-pdf-o' : 'fa-file-o');
+                html += '<div class="doc-item">';
+                html += '  <a href="javascript:void(0);" class="doc-left btn-preview-project-doc" data-file="' + doc.path + '" style="text-decoration:none; flex-grow:1; display:flex; align-items:center;">';
+                html += '    <i class="fa ' + icon + ' doc-icon"></i>';
+                html += '    <div class="doc-meta">';
+                html += '      <span class="doc-title">' + (doc.version ? doc.version.toUpperCase() + ' - ' : '') + (doc.name || 'Document') + '</span>';
+                html += '      <span class="doc-date">' + (doc.date ? '<i class="fa fa-clock-o"></i> ' + doc.date : '') + (doc.uploaded_by ? ' <span style="margin-left:8px; color:#e67e22; font-weight:600;"><i class="fa fa-user"></i> ' + doc.uploaded_by + '</span>' : '') + '</span>';
+                html += '    </div>';
+                html += '  </a>';
+                html += '  <div style="display:flex; align-items:center; gap:10px;">';
+                html += '    <a href="javascript:void(0);" class="btn-preview-project-doc" data-file="' + doc.path + '"><i class="fa fa-eye" style="color:#bdc3c7;"></i></a>';
+                html += '    <a href="javascript:void(0);" class="btn-delete-single-doc" data-id="' + $(this).data('id') + '" data-type="project" data-index="' + index + '"><i class="fa fa-trash text-danger"></i></a>';
+                html += '  </div>';
+                html += '</div>';
+            }.bind(this));
+            html += '</div>';
+        } else {
+            html += '<div class="doc-gallery" id="project-docs-container-1">';
+            docs.forEach(function(doc, index) {
+                var ext = (doc.path || '').split('.').pop().toLowerCase();
+                var icon = (['jpg','jpeg','png','gif'].indexOf(ext) > -1) ? 'fa-file-image-o' : (['pdf'].indexOf(ext) > -1 ? 'fa-file-pdf-o' : 'fa-file-o');
+                var cleanName = (doc.name || 'Document').replace(/^\d{10}_/, '');
+                var uploaderHtml = doc.uploaded_by ? '<br><small style="color:#f39c12; font-weight:600;"><i class="fa fa-user"></i> ' + doc.uploaded_by + '</small>' : '';
+                var tooltip = '<strong>' + (doc.version ? doc.version.toUpperCase() + ' - ' : '') + '</strong>' + cleanName + (doc.date ? '<br><small style="color:#bdc3c7;"><i class="fa fa-clock-o"></i> ' + doc.date + '</small>' : '') + uploaderHtml;
+                
+                html += '<div class="doc-gallery-item btn-preview-project-doc" data-file="' + doc.path + '" data-toggle="tooltip" data-html="true" title="' + tooltip.replace(/"/g, '&quot;') + '">';
+                html += '  <i class="fa ' + icon + ' doc-gallery-icon"></i>';
+                html += '  <span class="doc-gallery-label">' + (doc.version ? doc.version.toUpperCase() : 'DOC') + '</span>';
+                html += '  <div class="doc-gallery-actions">';
+                html += '    <button type="button" class="doc-gallery-btn btn-delete btn-delete-single-doc" data-id="' + $(this).data('id') + '" data-type="project" data-index="' + index + '" title="Delete Document">';
+                html += '      <i class="fa fa-trash"></i>';
+                html += '    </button>';
+                html += '  </div>';
+                html += '</div>';
+            }.bind(this));
+            html += '</div>';
+        }
 
         html += '<div style="margin-top:20px; text-align:center;">';
         html += '  <button class="btn btn-sm btn-primary btn-upload-more-doc" data-id="' + $(this).data('id') + '" data-type="project"><i class="fa fa-plus"></i> Add More Document</button>';
@@ -125,6 +164,15 @@ jQuery(function ($) {
             padding: '2em',
             customClass: {
                 popup: 'swal-modern-popup'
+            },
+            didOpen: function() {
+                $('.swal2-popup [data-toggle="tooltip"]').tooltip({
+                    container: 'body',
+                    trigger: 'hover'
+                });
+            },
+            willClose: function() {
+                $('.swal2-popup [data-toggle="tooltip"]').tooltip('destroy');
             }
         });
     });
@@ -176,6 +224,7 @@ jQuery(function ($) {
     // ── Single Document Deletion ───────────────────────────────────────────
     $(document).on('click', '.btn-delete-single-doc', function(e) {
         e.preventDefault();
+        e.stopPropagation();
         var id = $(this).data('id');
         var index = $(this).data('index');
         

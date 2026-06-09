@@ -43,12 +43,14 @@ class Project extends CI_Controller
             }
             
             $next_version = count($docs) + 1;
+            $uploader_name = $this->session->userdata(SESS_HEAD . '_user_name') ?: 'Unknown';
             
             $docs[] = [
                 'version' => 'v' . $next_version,
                 'path'    => $file_url,
                 'name'    => $file_name,
-                'date'    => date('Y-m-d H:i:s')
+                'date'    => date('Y-m-d H:i:s'),
+                'uploaded_by' => $uploader_name
             ];
             
             return json_encode($docs);
@@ -124,7 +126,7 @@ class Project extends CI_Controller
         }
         
         if (!empty($_FILES['document']['name'])) {
-            $new_docs_json = $this->_handle_document_upload('document', $project['document']);
+            $new_docs_json = $this->_handle_document_upload($project['document']);
             if ($new_docs_json !== $project['document']) {
                 $this->db->where('project_id', $project_id);
                 $this->db->update('tm_projects', ['document' => $new_docs_json]);

@@ -43,12 +43,14 @@ class Epic extends CI_Controller
             }
 
             $next_version = count($docs) + 1;
+            $uploader_name = $this->session->userdata(SESS_HEAD . '_user_name') ?: 'Unknown';
 
             $docs[] = [
                 'version' => 'v' . $next_version,
                 'path'    => $file_url,
                 'name'    => $file_name,
-                'date'    => date('Y-m-d H:i:s')
+                'date'    => date('Y-m-d H:i:s'),
+                'uploaded_by' => $uploader_name
             ];
 
             return json_encode($docs);
@@ -122,7 +124,7 @@ class Epic extends CI_Controller
         }
         
         if (!empty($_FILES['document']['name'])) {
-            $new_docs_json = $this->_handle_document_upload('document', $epic['document']);
+            $new_docs_json = $this->_handle_document_upload($epic['document']);
             if ($new_docs_json !== $epic['document']) {
                 $this->db->where('epic_id', $epic_id);
                 $this->db->update('tm_epics', ['document' => $new_docs_json]);
@@ -248,6 +250,61 @@ class Epic extends CI_Controller
         $data['f_status']      = $f_status;
 
         $this->load->view('page/epics/epic-list', $data);
+    }
+
+    public function get_epics_ajax()
+    {
+        if (!$this->session->userdata(SESS_HEAD . '_logged_in')) {
+            header('Content-Type: application/json');
+            echo json_encode(array('success' => false, 'message' => 'Unauthorized'));
+            return;
+        }
+
+        $f_project = $this->input->get('project_id');
+        $f_status  = $this->input->get('f_status');
+
+        $where = "e.status_flag='Active'";
+        if ($f_project) $where .= " AND e.project_id=" . (int)$f_project;
+        if ($f_status)  $where .= " AND e.status='" . $this->db->escape_str($f_status) . "'";
+
+        $cnt = $this->db->query("SELECT COUNT(*) as cnt FROM tm_epics e WHERE {$where}")->row_array();
+        $total_records = (int)$cnt['cnt'];
+
+        $offset = (int)$this->input->get('offset');
+
+        $this->load->library('pagination');
+        $config = $this->_pagination_config('epic-list', $total_records, 10);
+        $config['page_query_string'] = TRUE;
+        $config['query_string_segment'] = 'offset';
+        $this->pagination->initialize($config);
+
+        $sql = "SELECT e.*, p.name as project_name,
+                    (SELECT COUNT(*) FROM tm_user_stories WHERE epic_id=e.epic_id AND status_flag='Active') as story_count,
+                    COALESCE((SELECT SUM(t.estimated_hours) FROM tm_tasks t WHERE (t.epic_id = e.epic_id OR t.story_id IN (SELECT story_id FROM tm_user_stories WHERE epic_id=e.epic_id AND status_flag='Active')) AND t.status_flag='Active'), 0) as calculated_time_hours
+                FROM tm_epics e
+                LEFT JOIN tm_projects p ON p.project_id = e.project_id
+                WHERE {$where}
+                ORDER BY e.created_date DESC
+                LIMIT {$offset}, 10";
+        $record_list = $this->db->query($sql)->result_array();
+        $pagination  = $this->pagination->create_links();
+
+        $data = array(
+            'record_list' => $record_list,
+            'sno' => $offset,
+            'pagination' => $pagination,
+            'total_records' => $total_records
+        );
+
+        $html = $this->load->view('page/epics/epic-list-rows', $data, TRUE);
+
+        header('Content-Type: application/json');
+        echo json_encode(array(
+            'success' => true,
+            'html' => $html,
+            'pagination' => $pagination,
+            'total_records' => $total_records
+        ));
     }
 
     private function _pagination_config($url, $total, $per_page)
