@@ -3,10 +3,17 @@ if (!function_exists('format_hours')) {
     function format_hours($decimal_hours) {
         if (!$decimal_hours || $decimal_hours <= 0) return '-';
         $h = floor($decimal_hours);
-        $m = round(($decimal_hours - $h) * 60);
+        $rem_m = ($decimal_hours - $h) * 60;
+        $m = floor($rem_m);
+        $s = round(($rem_m - $m) * 60);
+        
+        if ($s == 60) { $s = 0; $m++; }
+        if ($m == 60) { $m = 0; $h++; }
+
         $parts = [];
         if ($h > 0) $parts[] = $h.'h';
         if ($m > 0) $parts[] = $m.'m';
+        if ($s > 0) $parts[] = $s.'s';
         return empty($parts) ? '0m' : implode(' ', $parts);
     }
 }
@@ -134,9 +141,9 @@ if (!function_exists('format_hours')) {
                           $is_overdue = ($est_h > 0 && $log_h > $est_h);
                           $over_h = max(0, $log_h - $est_h);
                           
-                          $log_display = round($log_h, 2) . 'h';
+                          $log_display = format_hours($log_h);
                           if ($is_overdue) {
-                              $log_display .= ' <span style="color:#e74c3c; font-weight:bold; font-size:10px; display:inline-block;"><br><i class="fa fa-warning"></i> +' . round($over_h, 2) . 'h Over</span>';
+                              $log_display .= ' <span style="color:#e74c3c; font-weight:bold; font-size:10px; display:inline-block;"><br><i class="fa fa-warning"></i> +' . format_hours($over_h) . ' Over</span>';
                           } elseif ($est_h > 0 && $log_h == $est_h) {
                               $log_display .= ' <span style="color:#f39c12; font-weight:bold; font-size:10px; display:inline-block;"><br>Limit Reached</span>';
                           }
@@ -243,9 +250,9 @@ if (!function_exists('format_hours')) {
                               $sub_is_overdue = ($sub_est_h > 0 && $sub_log_h > $sub_est_h);
                               $sub_over_h = max(0, $sub_log_h - $sub_est_h);
                               
-                              $sub_log_display = round($sub_log_h, 2) . 'h';
+                              $sub_log_display = format_hours($sub_log_h);
                               if ($sub_is_overdue) {
-                                  $sub_log_display .= ' <span style="color:#e74c3c; font-weight:bold; font-size:10px; display:inline-block;"><br><i class="fa fa-warning"></i> +' . round($sub_over_h, 2) . 'h Over</span>';
+                                  $sub_log_display .= ' <span style="color:#e74c3c; font-weight:bold; font-size:10px; display:inline-block;"><br><i class="fa fa-warning"></i> +' . format_hours($sub_over_h) . ' Over</span>';
                               } elseif ($sub_est_h > 0 && $sub_log_h == $sub_est_h) {
                                   $sub_log_display .= ' <span style="color:#f39c12; font-weight:bold; font-size:10px; display:inline-block;"><br>Limit Reached</span>';
                               }

@@ -3,10 +3,17 @@ if (!function_exists('format_hours')) {
     function format_hours($decimal_hours) {
         if (!$decimal_hours || $decimal_hours <= 0) return '-';
         $h = floor($decimal_hours);
-        $m = round(($decimal_hours - $h) * 60);
+        $rem_m = ($decimal_hours - $h) * 60;
+        $m = floor($rem_m);
+        $s = round(($rem_m - $m) * 60);
+        
+        if ($s == 60) { $s = 0; $m++; }
+        if ($m == 60) { $m = 0; $h++; }
+
         $parts = [];
         if ($h > 0) $parts[] = $h.'h';
         if ($m > 0) $parts[] = $m.'m';
+        if ($s > 0) $parts[] = $s.'s';
         return empty($parts) ? '0m' : implode(' ', $parts);
     }
 }
@@ -210,11 +217,43 @@ foreach ($record_list as $j => $t):
     <?php endif; ?>
   </td>
   
+<?php
+$created_date_formatted = '-';
+if (!empty($t['created_date'])) {
+    $dt = new DateTime($t['created_date']);
+    $dt->setTimezone(new DateTimeZone('Asia/Kolkata'));
+    $created_date_formatted = $dt->format('d-M-Y h:i A');
+}
+$days_taken_str = '-';
+if (!empty($t['created_date'])) {
+    $start = strtotime($t['created_date']);
+    $end = in_array($t['status'], ['done','closed']) && !empty($t['completed_at']) ? strtotime($t['completed_at']) : time();
+    $diff = max(0, $end - $start);
+    $days = floor($diff / 86400);
+    $hrs = floor(($diff % 86400) / 3600);
+    $mins = floor(($diff % 3600) / 60);
+    if ($days > 0) {
+        $days_taken_str = $days . 'd ' . $hrs . 'h';
+    } elseif ($hrs > 0) {
+        $days_taken_str = $hrs . 'h ' . $mins . 'm';
+    } else {
+        $days_taken_str = $mins . 'm';
+    }
+}
+$is_completed = in_array($t['status'], ['done','closed']);
+?>
   <td style="font-size:12px; font-weight:600; <?php echo $is_effort_overdue ? 'color:#e74c3c; background:#fdf0ed;' : 'color:#27ae60; background:#f0fff4;'; ?>">
-    <?php echo format_hours($logged_h); ?>
-    <?php if ($is_effort_overdue): ?>
-      <br><span class="label label-danger" style="font-size:9px; padding:2px 4px; display:inline-block; margin-top:3px;"><i class="fa fa-warning"></i> OVERTIME</span>
-    <?php endif; ?>
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span>
+            <?php echo format_hours($logged_h); ?>
+            <?php if ($is_effort_overdue): ?>
+              <i class="fa fa-warning text-danger" title="Overtime" style="margin-left:3px; font-size: 13px;"></i>
+            <?php endif; ?>
+        </span>
+        <button type="button" class="btn btn-xs btn-default btn-logged-time-details" style="padding: 1px 4px; font-size: 11px; background: transparent; border-color: #bdc3c7;" title="View Time Details" data-title="<?php echo htmlspecialchars($t['title'], ENT_QUOTES); ?>" data-created="<?php echo $created_date_formatted; ?>" data-logged="<?php echo format_hours($logged_h); ?>" data-estimated="<?php echo format_hours($estimated_h); ?>" data-overdue="<?php echo $is_effort_overdue ? '1' : '0'; ?>" data-overtime="<?php echo $is_effort_overdue ? format_hours($logged_h - $estimated_h) : '0'; ?>" data-duration-str="<?php echo $days_taken_str; ?>" data-is-completed="<?php echo $is_completed ? '1' : '0'; ?>">
+            <i class="fa fa-eye"></i>
+        </button>
+    </div>
   </td>
 
   <!-- Actions -->

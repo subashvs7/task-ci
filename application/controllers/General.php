@@ -574,7 +574,7 @@ class General extends CI_Controller
         $epic_id = (int)$this->input->get('epic_id');
         $stories = $this->db->query("
             SELECT story_id, name, project_id, epic_id 
-            FROM tm_stories 
+            FROM tm_user_stories 
             WHERE status_flag='Active' AND epic_id = ? 
             ORDER BY name
         ", array($epic_id))->result_array();

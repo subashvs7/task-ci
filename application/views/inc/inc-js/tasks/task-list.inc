@@ -451,6 +451,65 @@ jQuery(function ($) {
         });
     });
 
+    // ── Logged Time Details Popup ─────────────────────────────────────────────
+    $(document).on('click', '.btn-logged-time-details', function(e) {
+        e.preventDefault();
+        var created = $(this).data('created');
+        var logged = $(this).data('logged');
+        var estimated = $(this).data('estimated');
+        var overdue = $(this).data('overdue') == '1';
+        var overtime = $(this).data('overtime');
+        var isCompleted = $(this).data('is-completed') == '1';
+        var durationStr = $(this).data('duration-str');
+        var durationLabel = isCompleted ? 'Overall Time Taken' : 'Task Running For';
+        var title = $(this).data('title');
+
+        var html = '<div style="text-align: left; font-size: 14px;">';
+        
+        html += '<div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #dcdde1; text-align: center;">';
+        html += '<span style="color: #7f8c8d; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Task Name</span><br>';
+        html += '<span style="color: #2c3e50; font-weight: 700; font-size: 15px;">' + title + '</span></div>';
+
+        html += '<div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f1f2f6;">';
+        html += '<span style="color: #7f8c8d; font-weight: 600;">Created Date</span>';
+        html += '<span style="color: #2c3e50; font-weight: 500;">' + created + '</span></div>';
+        
+        html += '<div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f1f2f6;">';
+        html += '<span style="color: #7f8c8d; font-weight: 600;">Logged Time</span>';
+        html += '<span style="color: #2980b9; font-weight: 700;">' + logged + '</span></div>';
+        
+        html += '<div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f1f2f6;">';
+        html += '<span style="color: #7f8c8d; font-weight: 600;">Estimated Time</span>';
+        html += '<span style="color: #2c3e50; font-weight: 500;">' + (estimated !== '0m' ? estimated : 'Not Set') + '</span></div>';
+        
+        html += '<div style="display: flex; justify-content: space-between; padding: 10px 0; ' + (!overdue ? '' : 'border-bottom: 1px solid #f1f2f6;') + '">';
+        html += '<span style="color: #7f8c8d; font-weight: 600;">' + durationLabel + '</span>';
+        html += '<span style="color: #27ae60; font-weight: 700;">' + durationStr + '</span></div>';
+
+        if (overdue) {
+            html += '<div style="display: flex; justify-content: space-between; padding: 10px 0; background: #fdf0ed; border-radius: 6px; margin-top: 10px;">';
+            html += '<span style="color: #c0392b; font-weight: 600; padding-left: 10px;">Over Estimation</span>';
+            html += '<span style="color: #c0392b; font-weight: bold; padding-right: 10px;">' + overtime + '</span></div>';
+        }
+        html += '</div>';
+
+        Swal.fire({
+            title: '<div style="font-size: 18px; font-weight: 600; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 5px;"><i class="fa fa-clock-o text-info" style="margin-right: 8px;"></i>Time Details</div>',
+            html: html,
+            showCloseButton: true,
+            showConfirmButton: false,
+            width: 380,
+            padding: '1.5em',
+            customClass: {
+                popup: 'swal-modern-popup'
+            },
+            didOpen: function() {
+                $('.swal2-popup').css('border-radius', '12px');
+                $('.swal2-title').css('margin-bottom', '0');
+            }
+        });
+    });
+
     // ── AJAX Task List Filtering ─────────────────────────────────────────────
     function loadFilteredTasks(offset) {
         var projectId = $('#filter_project_id').val();
