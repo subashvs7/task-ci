@@ -86,6 +86,37 @@ $isAdmin = ($role === 'admin');
 </li>
 <?php endif; ?>
 
+<!-- Password Manager -->
+<li class="treeview <?php if (in_array($seg1, array('password-manager','pm-categories'))) echo 'active'; ?>">
+  <a href="#">
+    <i class="fa fa-lock" style="color:#a569bd;"></i> <span>Password Manager</span>
+    <span class="pull-right-container"><i class="fa fa-angle-left pull-right"></i></span>
+    <span class="pull-right-container" style="margin-right:18px;"><span class="label pull-right" style="background:linear-gradient(135deg,#8e44ad,#6c3483);font-size:9px;border-radius:10px;padding:2px 7px;">NEW</span></span>
+  </a>
+  <ul class="treeview-menu">
+    <li <?php if ($seg1 === 'password-manager') echo 'class="active"'; ?>>
+      <a href="<?php echo site_url('password-manager') ?>"><i class="fa fa-key"></i> All Passwords</a>
+    </li>
+    <li <?php if ($seg1 === 'pm-categories') echo 'class="active"'; ?>>
+      <a href="<?php echo site_url('pm-categories') ?>"><i class="fa fa-tags"></i> Manage Categories</a>
+    </li>
+    <li>
+      <a href="<?php echo site_url('password-manager/form') ?>"><i class="fa fa-plus"></i> Add Password</a>
+    </li>
+  </ul>
+</li>
+
+<?php if ($isAdmin): ?>
+<!-- Contact Book -->
+<li <?php if ($seg1 === 'contact-book') echo 'class="active"'; ?>>
+  <a href="<?php echo site_url('contact-book') ?>">
+    <i class="fa fa-address-book" style="color:#e67e22;"></i> <span>Contact Book</span>
+    <span class="pull-right-container"><span class="label pull-right" style="background:#e67e22;font-size:9px;border-radius:10px;padding:2px 7px;">Admin</span></span>
+  </a>
+</li>
+<?php endif; ?>
+
+
 <?php if (has_menu_permission('users') || has_menu_permission('role_permissions')): ?>
 <!-- Administration -->
 <li class="header">ADMINISTRATION</li>

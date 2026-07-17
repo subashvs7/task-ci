@@ -56,6 +56,29 @@ $route['project-report/(:num)']     = 'report/project_report/$1';
 $route['feasibility-analysis']        = 'report/feasibility_analysis';
 $route['feasibility-analysis/(:num)'] = 'report/feasibility_analysis/$1';
 
+// Password Manager
+$route['password-manager']                = 'passwordManager/index';
+$route['password-manager/(:num)']         = 'passwordManager/index/$1';
+$route['password-manager/form']           = 'passwordManager/form';
+$route['password-manager/form/(:num)']    = 'passwordManager/form/$1';
+$route['pm-save']                         = 'passwordManager/save';
+$route['pm-delete']                       = 'passwordManager/delete';
+$route['pm-toggle-fav']                   = 'passwordManager/toggle_favorite';
+$route['pm-get-secret']                   = 'passwordManager/get_secret';
+$route['pm-generate-password']            = 'passwordManager/generate_password';
+$route['pm-check-strength']               = 'passwordManager/check_strength';
+// Category Master
+$route['pm-categories']                   = 'passwordManager/categories';
+$route['pm-category-save']                = 'passwordManager/category_save';
+$route['pm-category-delete']              = 'passwordManager/category_delete';
+$route['pm-category-reorder']             = 'passwordManager/category_reorder';
+
+// Contact Book (Admin Only)
+$route['contact-book']                    = 'contactBook/index';
+$route['contact-book/save']               = 'contactBook/save';
+$route['contact-book/get']                = 'contactBook/get_contact';
+$route['contact-book/delete']             = 'contactBook/delete';
+
 // Database Migration
 $route['run-migration']             = 'general/run_migration';
 
