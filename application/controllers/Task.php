@@ -177,6 +177,8 @@ class Task extends CI_Controller
                 'due_date'       => $this->input->post('due_date') ?: NULL,
                 'assigned_to'    => $this->input->post('assigned_to') ?: NULL,
                 'reporter_id'    => $uid,
+                'start_time'     => $this->input->post('start_time') ? str_replace('T', ' ', $this->input->post('start_time')) : NULL,
+                'end_time'       => $this->input->post('end_time') ? str_replace('T', ' ', $this->input->post('end_time')) : NULL,
                 'estimated_hours'=> $estimated_hours,
                 'status_flag'    => 'Active',
                 'created_by'     => $uid,
@@ -215,6 +217,8 @@ class Task extends CI_Controller
                 'type'           => $this->input->post('type'),
                 'due_date'       => $this->input->post('due_date') ?: NULL,
                 'assigned_to'    => $this->input->post('assigned_to') ?: NULL,
+                'start_time'     => $this->input->post('start_time') ? str_replace('T', ' ', $this->input->post('start_time')) : NULL,
+                'end_time'       => $this->input->post('end_time') ? str_replace('T', ' ', $this->input->post('end_time')) : NULL,
                 // reporter_id is NOT updated on edit — it stays as the original assigner
                 'estimated_hours'=> $estimated_hours,
                 'updated_by'     => $uid,
@@ -1194,5 +1198,29 @@ class Task extends CI_Controller
                 }
             }
         }
+    }
+
+    public function get_scheduled_tasks()
+    {
+        if (!$this->session->userdata(SESS_HEAD . '_logged_in')) {
+            header('Content-Type: application/json');
+            echo json_encode(array('success' => false, 'message' => 'Unauthorized'));
+            return;
+        }
+        
+        $sql = "SELECT t.task_id, t.title, t.start_time, t.end_time, t.due_date, 
+                       t.estimated_hours, t.work_session_status, t.assigned_to,
+                       COALESCE(ua.name, 'Unassigned') as assignee_name,
+                       (COALESCE((SELECT SUM(tl.hours) FROM tm_time_logs tl WHERE tl.task_id=t.task_id AND tl.status_flag='Active'), 0)) as logged_hours,
+                       (SELECT started_at FROM tm_task_sessions WHERE task_id=t.task_id AND ended_at IS NULL AND status_flag='Active' LIMIT 1) as open_session_start
+                FROM tm_tasks t
+                LEFT JOIN tm_users ua ON ua.user_id = t.assigned_to
+                WHERE t.status_flag = 'Active' 
+                  AND t.status NOT IN ('done', 'closed')";
+        
+        $tasks = $this->db->query($sql)->result_array();
+        
+        header('Content-Type: application/json');
+        echo json_encode(array('success' => true, 'tasks' => $tasks));
     }
 }

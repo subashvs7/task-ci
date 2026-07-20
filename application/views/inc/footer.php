@@ -504,6 +504,310 @@
   });
 </script>
 
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCkURFLiJOsUgvgxv8xfB5lxwr2uq-Igec",
+    authDomain: "zazu-task.firebaseapp.com",
+    projectId: "zazu-task",
+    storageBucket: "zazu-task.firebasestorage.app",
+    messagingSenderId: "105767000196",
+    appId: "1:105767000196:web:d34d6ddb1b5c28f156cad1",
+    measurementId: "G-Y35F4Z0MRQ"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  let messaging = null;
+
+  const isSupported = 'serviceWorker' in navigator && 'PushManager' in window;
+
+  if (isSupported) {
+    try {
+      messaging = getMessaging(app);
+    } catch (e) {
+      console.warn("FCM getMessaging not supported/initialized in this environment: ", e);
+    }
+  }
+
+  function initializeFCM() {
+    if (!messaging) return;
+    
+    Notification.requestPermission().then((permission) => {
+      if (permission === 'granted') {
+        console.log('Notification permission granted.');
+        
+        navigator.serviceWorker.register('<?php echo base_url("firebase-messaging-sw.js"); ?>')
+          .then((registration) => {
+            console.log('Service Worker registered successfully with scope: ', registration.scope);
+            
+            getToken(messaging, { 
+              serviceWorkerRegistration: registration,
+              vapidKey: 'BCWZvDGIgoipRWDqbAhGVZD1aNb1xmNeTEF-tuzpxcozMkHuL6BWaNdhxU0S1FL7LIljtjLNoRahMQKsZWzEEE0' 
+            })
+            .then((currentToken) => {
+              if (currentToken) {
+                console.log('Retrieved FCM Token: ', currentToken);
+                $.ajax({
+                  url: '<?php echo site_url("save-fcm-token"); ?>',
+                  type: 'POST',
+                  data: { fcm_token: currentToken },
+                  dataType: 'json',
+                  success: function(res) {
+                    console.log('FCM Token sync status: ', res.message);
+                  }
+                });
+              } else {
+                console.warn('No registration token available.');
+              }
+            })
+            .catch((err) => {
+              console.error('An error occurred while retrieving token. ', err);
+            });
+          })
+          .catch((err) => {
+            console.error('Service Worker registration failed: ', err);
+          });
+      } else {
+        console.warn('Notification permission denied.');
+      }
+    });
+  }
+
+  let userTasksList = [];
+
+  function fetchScheduledTasks() {
+    $.ajax({
+      url: '<?php echo site_url("get-scheduled-tasks"); ?>',
+      type: 'GET',
+      dataType: 'json',
+      success: function(res) {
+        if (res.success && res.tasks) {
+          userTasksList = res.tasks;
+          console.log('Synchronized scheduled tasks: ', userTasksList.length);
+          // Run reminder check immediately after fresh data arrives
+          checkTaskReminders();
+        }
+      },
+      error: function(err) {
+        console.error('Failed to fetch scheduled tasks: ', err);
+      }
+    });
+  }
+
+  function parseDateToTimestamp(dateStr) {
+    if (!dateStr) return 0;
+    var cleanStr = dateStr.replace('T', ' ');
+    var parts = cleanStr.split(' ');
+    var dateParts = parts[0].split('-');
+    var timeParts = parts[1] ? parts[1].split(':') : [0, 0, 0];
+    var year   = parseInt(dateParts[0], 10);
+    var month  = parseInt(dateParts[1], 10) - 1;
+    var day    = parseInt(dateParts[2], 10);
+    var hour   = parseInt(timeParts[0], 10);
+    var minute = parseInt(timeParts[1], 10);
+    var second = parseInt(timeParts[2] || 0, 10);
+    return Math.floor(new Date(year, month, day, hour, minute, second).getTime() / 1000);
+  }
+
+  function playAlertSound() {
+    try {
+      var context = new (window.AudioContext || window.webkitAudioContext)();
+      var oscillator = context.createOscillator();
+      var gain = context.createGain();
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(880, context.currentTime); 
+      gain.gain.setValueAtTime(0.3, context.currentTime);
+      oscillator.start();
+      oscillator.stop(context.currentTime + 0.15);
+    } catch(e) {
+      console.warn("Could not play sound: ", e);
+    }
+  }
+
+  function speakNotification(text) {
+    if ('speechSynthesis' in window) {
+      try {
+        var utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.1;
+        window.speechSynthesis.speak(utterance);
+      } catch(e) {}
+    }
+  }
+
+  function triggerLocalNotification(title, body, taskId) {
+    playAlertSound();
+    speakNotification(title + ". " + body);
+
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification(title, {
+          body: body,
+          icon: '<?php echo base_url("asset/images/logo.png"); ?>'
+        });
+      } catch (err) {
+        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.ready.then(function(reg) {
+            reg.showNotification(title, { body: body });
+          });
+        }
+      }
+    }
+
+    if (typeof Swal !== 'undefined') {
+      Swal.fire({
+        icon: 'warning',
+        title: title,
+        html: '<div style="font-size:14px; text-align:left; padding:12px; background:#fff5f5; border-radius:8px; border-left:4px solid #e74c3c; margin-top:10px;">' +
+              '<p style="margin:0; color:#2c3e50; font-weight:500;">' + body.replace(/ \| /g, '<br>') + '</p>' +
+              '</div>',
+        confirmButtonText: '<i class="fa fa-tasks"></i> View Tasks',
+        confirmButtonColor: '#e74c3c',
+        allowOutsideClick: true
+      }).then(function(res) {
+        if (res.isConfirmed) {
+          window.location.href = '<?php echo site_url("task-list"); ?>';
+        }
+      });
+    }
+  }
+
+  function checkTaskReminders() {
+    if (userTasksList.length === 0) return;
+    
+    const now = Math.floor(Date.now() / 1000);
+    // Use a 120-second window to handle browser timer throttling in background tabs
+    const NOTIFY_WINDOW_SEC = 120;
+    
+    userTasksList.forEach((task) => {
+      const assignee = task.assignee_name || 'Unassigned';
+
+      // 1. Active Work Session Timer & Balance Time Check
+      if (task.work_session_status === 'active' && task.estimated_hours && parseFloat(task.estimated_hours) > 0) {
+        const estSec = Math.round(parseFloat(task.estimated_hours) * 3600);
+        const prevLoggedSec = Math.round(parseFloat(task.logged_hours || 0) * 3600);
+        let activeSec = 0;
+        if (task.open_session_start) {
+          const sessionStartTs = parseDateToTimestamp(task.open_session_start);
+          if (sessionStartTs > 0) {
+            activeSec = Math.max(0, now - sessionStartTs);
+          }
+        }
+        const totalLoggedSec = prevLoggedSec + activeSec;
+        const balanceSec = estSec - totalLoggedSec;
+
+        if (balanceSec <= NOTIFY_WINDOW_SEC) {
+          // Include estimated_hours in key so re-estimates re-trigger
+          const key = 'notified_balance_' + task.task_id + '_' + task.estimated_hours;
+          if (!sessionStorage.getItem(key)) {
+            sessionStorage.setItem(key, 'true');
+            const remMins = Math.max(0, Math.ceil(balanceSec / 60));
+            triggerLocalNotification(
+              '⚠️ 1 Min Balance Warning',
+              'Task: "' + task.title + '" | Assignee: ' + assignee + ' | Balance Time: ' + (remMins <= 1 ? '1 min' : remMins + ' mins') + ' remaining. Please turn off work session or complete task.',
+              task.task_id
+            );
+          }
+        }
+      }
+
+      // 2. Scheduled Start Time (notify within 1–2 minutes before start)
+      if (task.start_time) {
+        const startTs = parseDateToTimestamp(task.start_time);
+        if (startTs > 0) {
+          const timeDiff = startTs - now;
+          if (timeDiff >= 0 && timeDiff <= NOTIFY_WINDOW_SEC) {
+            // Include start_time in key so if start_time changes the new one re-triggers
+            const key = 'notified_start_' + task.task_id + '_' + startTs;
+            if (!sessionStorage.getItem(key)) {
+              sessionStorage.setItem(key, 'true');
+              triggerLocalNotification(
+                '🚀 Task Starting Soon',
+                'Task: "' + task.title + '" | Assignee: ' + assignee + ' | Starts in ~1 minute!',
+                task.task_id
+              );
+            }
+          }
+        }
+      }
+
+      // 3. Scheduled End Time (notify within 1–2 minutes before end)
+      if (task.end_time) {
+        const endTs = parseDateToTimestamp(task.end_time);
+        if (endTs > 0) {
+          const timeDiff = endTs - now;
+          if (timeDiff >= 0 && timeDiff <= NOTIFY_WINDOW_SEC) {
+            // Include end_time in key so if end_time changes the new one re-triggers
+            const key = 'notified_end_' + task.task_id + '_' + endTs;
+            if (!sessionStorage.getItem(key)) {
+              sessionStorage.setItem(key, 'true');
+              triggerLocalNotification(
+                '⌛ Task Ending Soon',
+                'Task: "' + task.title + '" | Assignee: ' + assignee + ' | Ends in ~1 minute. Please finish or stop work session.',
+                task.task_id
+              );
+            }
+          }
+        }
+      }
+    });
+  }
+
+  if (messaging) {
+    onMessage(messaging, (payload) => {
+      console.log('Message received in foreground: ', payload);
+      if (payload.notification) {
+        triggerLocalNotification(payload.notification.title, payload.notification.body, null);
+      }
+    });
+  }
+
+  $(document).ready(function() {
+    <?php if ($this->session->userdata(SESS_HEAD . '_logged_in')): ?>
+      if ('Notification' in window) {
+        if (Notification.permission === 'default') {
+          const bannerHtml = `
+            <div id="notif-permission-banner" style="position: fixed; bottom: 20px; right: 20px; z-index: 999999; 
+                        background: linear-gradient(135deg, #1e1b4b 0%, #311042 100%); color: white; 
+                        padding: 15px 20px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); 
+                        max-width: 320px; border: 1px solid rgba(255,255,255,0.1); font-family: sans-serif;">
+              <div style="font-weight: bold; margin-bottom: 5px; font-size: 14px;"><i class="fa fa-bell text-warning"></i> Task Reminders</div>
+              <div style="font-size: 12px; margin-bottom: 12px; opacity: 0.9;">Enable push notifications to receive 1-minute warnings before tasks start, end, or balance time expires.</div>
+              <div style="text-align: right;">
+                <button id="btn-decline-notif" style="background: transparent; color: #cbd5e1; border: none; font-size: 12px; cursor: pointer; margin-right: 12px; padding: 5px;">Later</button>
+                <button id="btn-allow-notif" style="background: #22c55e; color: white; border: none; font-size: 12px; font-weight: bold; cursor: pointer; padding: 6px 14px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">Enable</button>
+              </div>
+            </div>
+          `;
+          $('body').append(bannerHtml);
+          
+          $('#btn-allow-notif').on('click', function() {
+            $('#notif-permission-banner').fadeOut(200, function() { $(this).remove(); });
+            initializeFCM();
+          });
+          
+          $('#btn-decline-notif').on('click', function() {
+            $('#notif-permission-banner').fadeOut(200, function() { $(this).remove(); });
+          });
+        } else if (Notification.permission === 'granted') {
+          initializeFCM();
+        }
+      }
+
+      fetchScheduledTasks();
+      // Fetch every 10s (was 15s) for tighter timing coverage
+      setInterval(fetchScheduledTasks, 10000);
+      // Check reminders every 5s; also called immediately after each fetch
+      setInterval(checkTaskReminders, 5000);
+    <?php endif; ?>
+  });
+</script>
+
+
 <?php if (isset($js) && !empty($js)) include_once(VIEWPATH . 'inc/inc-js/' . $js); ?>
 
 </body>

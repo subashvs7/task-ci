@@ -95,6 +95,8 @@ jQuery(function ($) {
         $('#edit_estimate_hours').val($b.data('eh'));
         $('#edit_estimate_minutes').val($b.data('em'));
         $('#edit_pct').val($b.data('pct'));
+        $('#edit_start_time').val($b.data('start_time'));
+        $('#edit_end_time').val($b.data('end_time'));
 
         // Trigger project update programmatically
         $('#edit_project_id').val(projectId).trigger('change.select2').trigger('change', [{ programmatic: true }]);

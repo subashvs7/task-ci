@@ -177,7 +177,23 @@ foreach ($record_list as $j => $t):
 
   <!-- Due Date with Date Overdue badge -->
   <td style="font-size:12px; <?php echo $is_date_overdue ? 'color:#c0392b; font-weight:bold;' : ''; ?>">
-    <?php echo $t['due_date'] ? date('d-M-Y', strtotime($t['due_date'])) : '-'; ?>
+    <?php if (!empty($t['start_time'])): ?>
+      <div style="font-size: 10px; color: #555; margin-bottom: 2px;" title="Scheduled Start Time">
+        <i class="fa fa-clock-o text-success"></i> <strong>Start:</strong> <?php echo date('d-M-Y h:i A', strtotime($t['start_time'])); ?>
+      </div>
+    <?php endif; ?>
+    <?php if (!empty($t['end_time'])): ?>
+      <div style="font-size: 10px; color: #555; margin-bottom: 4px;" title="Scheduled End Time">
+        <i class="fa fa-clock-o text-danger"></i> <strong>End:</strong> <?php echo date('d-M-Y h:i A', strtotime($t['end_time'])); ?>
+      </div>
+    <?php endif; ?>
+    
+    <?php if (empty($t['start_time']) && empty($t['end_time'])): ?>
+      <?php echo $t['due_date'] ? date('d-M-Y', strtotime($t['due_date'])) : '-'; ?>
+    <?php elseif ($t['due_date']): ?>
+      <div style="font-size: 10px; color: #777;"><strong>Due:</strong> <?php echo date('d-M-Y', strtotime($t['due_date'])); ?></div>
+    <?php endif; ?>
+
     <?php if ($is_date_overdue): ?>
       <br><span class="label label-danger" style="font-size:9px; padding:1px 4px;"><i class="fa fa-calendar-times-o"></i> Date Overdue</span>
     <?php endif; ?>
@@ -277,6 +293,8 @@ $is_completed = in_array($t['status'], ['done','closed']);
       data-em="<?php echo $t['estimate_minutes']; ?>"
       data-pct="<?php echo $t['completion_percentage']; ?>"
       data-document="<?php echo htmlspecialchars($t['document'] ?? '', ENT_QUOTES); ?>"
+      data-start_time="<?php echo $t['start_time'] ? date('Y-m-d\TH:i', strtotime($t['start_time'])) : ''; ?>"
+      data-end_time="<?php echo $t['end_time'] ? date('Y-m-d\TH:i', strtotime($t['end_time'])) : ''; ?>"
       title="Edit"><i class="fa fa-pencil"></i>
     </button>
     <button class="btn btn-xs btn-danger del_record" value="<?php echo $t['task_id']; ?>" data-tbl="tm_tasks" data-col="task_id" title="Delete">

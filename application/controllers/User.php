@@ -285,4 +285,24 @@ class User extends CI_Controller
             'prev_link'        => 'Prev', 'next_link' => 'Next',
         );
     }
+
+    public function save_fcm_token()
+    {
+        if (!$this->session->userdata(SESS_HEAD . '_logged_in')) {
+            header('Content-Type: application/json');
+            echo json_encode(array('success' => false, 'message' => 'Unauthorized'));
+            return;
+        }
+        $uid = $this->session->userdata(SESS_HEAD . '_user_id');
+        $token = $this->input->post('fcm_token');
+        if ($token) {
+            $this->db->where('user_id', $uid);
+            $this->db->update('tm_users', array('fcm_token' => $token));
+            header('Content-Type: application/json');
+            echo json_encode(array('success' => true, 'message' => 'Token saved'));
+        } else {
+            header('Content-Type: application/json');
+            echo json_encode(array('success' => false, 'message' => 'Token empty'));
+        }
+    }
 }

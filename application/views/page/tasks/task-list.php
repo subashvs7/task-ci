@@ -224,6 +224,18 @@ function format_hours($decimal_hours) {
             </div>
           </div>
           <div class="row">
+            <div class="col-md-6">
+              <div class="form-group"><label>Start Time</label>
+                <input type="datetime-local" name="start_time" class="form-control">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group"><label>End Time</label>
+                <input type="datetime-local" name="end_time" class="form-control">
+              </div>
+            </div>
+          </div>
+          <div class="row">
             <div class="col-md-<?php echo in_array($cur_role, array('manager', 'team_leader')) ? '6' : '4'; ?>">
               <div class="form-group"><label>Assign To</label>
                 <select name="assigned_to" class="form-control select2">
@@ -349,6 +361,18 @@ function format_hours($decimal_hours) {
             <div class="col-md-3">
               <div class="form-group"><label>Due Date</label>
                 <input type="date" name="due_date" id="edit_due_date" class="form-control">
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group"><label>Start Time</label>
+                <input type="datetime-local" name="start_time" id="edit_start_time" class="form-control">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group"><label>End Time</label>
+                <input type="datetime-local" name="end_time" id="edit_end_time" class="form-control">
               </div>
             </div>
           </div>

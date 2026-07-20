@@ -110,3 +110,6 @@ $route['get-tasks-ajax']             = 'task/get_tasks_ajax';
 $route['task-sessions/(:num)']       = 'task/get_sessions/$1';
 $route['task-effort-status/(:num)']  = 'task/get_effort_status/$1';
 $route['task-quick-view']            = 'task/task_quick_view';
+$route['get-scheduled-tasks']        = 'task/get_scheduled_tasks';
+$route['save-fcm-token']             = 'user/save_fcm_token';
+
