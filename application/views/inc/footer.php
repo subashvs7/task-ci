@@ -585,6 +585,10 @@
       success: function(res) {
         if (res.success && res.tasks) {
           userTasksList = res.tasks;
+          if (res.current_server_time) {
+            window.lastServerTimeSec = res.current_server_time;
+            window.lastServerTimeFetchedAt = Date.now();
+          }
           console.log('Synchronized scheduled tasks: ', userTasksList.length);
           // Run reminder check immediately after fresh data arrives
           checkTaskReminders();
@@ -679,12 +683,16 @@
   function checkTaskReminders() {
     if (userTasksList.length === 0) return;
     
-    const now = Math.floor(Date.now() / 1000);
+    // Use server time to prevent instant triggers if browser clock is ahead of DB
+    let now = Math.floor(Date.now() / 1000);
+    if (window.lastServerTimeSec && window.lastServerTimeFetchedAt) {
+      const elapsedSinceFetch = Math.floor((Date.now() - window.lastServerTimeFetchedAt) / 1000);
+      now = window.lastServerTimeSec + elapsedSinceFetch;
+    }
     // Window for start/end time scheduling notifications (2 min to handle throttled tabs)
     const SCHEDULE_WINDOW_SEC = 120;
     // Balance warning thresholds
-    const BALANCE_WARN_5MIN_SEC  = 300; // fire when ≤ 5 minutes balance remain
-    const BALANCE_WARN_1MIN_SEC  = 90;  // fire again when ≤ ~1 minute balance remain
+    const BALANCE_WARN_1MIN_SEC  = 60;  // fire when ≤ 1 minute balance remain
     
     userTasksList.forEach((task) => {
       const assignee = task.assignee_name || 'Unassigned';
@@ -694,41 +702,33 @@
         const estSec = Math.round(parseFloat(task.estimated_hours) * 3600);
         const prevLoggedSec = Math.round(parseFloat(task.logged_hours || 0) * 3600);
         let activeSec = 0;
-        if (task.open_session_start) {
-          const sessionStartTs = parseDateToTimestamp(task.open_session_start);
-          if (sessionStartTs > 0) {
-            activeSec = Math.max(0, now - sessionStartTs);
+        if (task.work_session_status === 'active' && typeof task.active_sec !== 'undefined') {
+          // Exactly matches the backend calculation, plus time since last fetch
+          let elapsedSinceFetch = 0;
+          if (window.lastServerTimeFetchedAt) {
+            elapsedSinceFetch = Math.max(0, Math.floor((Date.now() - window.lastServerTimeFetchedAt) / 1000));
           }
+          activeSec = parseInt(task.active_sec, 10) + elapsedSinceFetch;
         }
+        
         const totalLoggedSec = prevLoggedSec + activeSec;
         const balanceSec = estSec - totalLoggedSec;
-
-        // ── 5-minute early warning ────────────────────────────────────────────
-        if (balanceSec > BALANCE_WARN_1MIN_SEC && balanceSec <= BALANCE_WARN_5MIN_SEC) {
-          // Key uses floor-minute so it fires once per minute-band, not every 5s
-          const minuteBand = Math.ceil(balanceSec / 60);
-          const key = 'notified_balance5_' + task.task_id + '_' + task.estimated_hours + '_' + minuteBand;
-          if (!sessionStorage.getItem(key)) {
-            sessionStorage.setItem(key, 'true');
-            const remMins = Math.ceil(balanceSec / 60);
-            triggerLocalNotification(
-              '⏳ ' + remMins + ' Min Balance Warning',
-              'Task: "' + task.title + '" | Assignee: ' + assignee + ' | Only ' + remMins + ' min of estimate remaining! Please wrap up or stop work session.',
-              task.task_id
-            );
-          }
-        }
+        const prevBalanceSec = estSec - prevLoggedSec;
 
         // ── Final 1-minute warning ────────────────────────────────────────────
-        if (balanceSec <= BALANCE_WARN_1MIN_SEC) {
+        // Calculate exactly: (Estimated Time - 1 min).
+        // Only trigger if we started this session with MORE than 1 minute remaining,
+        // and we have now crossed into the final 1-minute window. 
+        // This totally prevents the notification from showing immediately upon clicking "Start Work".
+        if (prevBalanceSec > BALANCE_WARN_1MIN_SEC && balanceSec <= BALANCE_WARN_1MIN_SEC) {
           // Include estimated_hours in key so re-estimates re-trigger
           const key = 'notified_balance1_' + task.task_id + '_' + task.estimated_hours;
           if (!sessionStorage.getItem(key)) {
             sessionStorage.setItem(key, 'true');
             const remMins = Math.max(0, Math.ceil(balanceSec / 60));
             triggerLocalNotification(
-              '🚨 1 Min Balance Warning',
-              'Task: "' + task.title + '" | Assignee: ' + assignee + ' | Balance Time: ' + (remMins <= 1 ? '~1 min' : remMins + ' mins') + ' remaining. Please stop work session or complete task NOW.',
+              '🚨 Stop Work Reminder',
+              'Task: "' + task.title + '" | Assignee: ' + assignee + ' | Only ' + (remMins <= 1 ? '~1 min' : remMins + ' mins') + ' of estimated time remaining. Please wrap up and stop the work session.',
               task.task_id
             );
           }
@@ -818,9 +818,7 @@
         }
       }
 
-      fetchScheduledTasks();
-      // Fetch every 10s (was 15s) for tighter timing coverage
-      setInterval(fetchScheduledTasks, 10000);
+      fetchScheduledTasks(); 
       // Check reminders every 5s; also called immediately after each fetch
       setInterval(checkTaskReminders, 5000);
     <?php endif; ?>

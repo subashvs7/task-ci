@@ -1218,6 +1218,16 @@ class Task extends CI_Controller
             return;
         }
         
+        $role = $this->session->userdata(SESS_HEAD . '_role');
+        $uid  = (int)$this->session->userdata(SESS_HEAD . '_user_id');
+        
+        $where = "t.status_flag = 'Active' AND t.status NOT IN ('done', 'closed')";
+        
+        // Role-based scope: non-privileged users only get notifications for their own tasks
+        if (!in_array($role, ['admin', 'manager', 'team_leader'])) {
+            $where .= " AND (t.created_by = {$uid} OR t.assigned_to = {$uid})";
+        }
+
         $sql = "SELECT t.task_id, t.title, t.start_time, t.end_time, t.due_date, 
                        t.estimated_hours, t.work_session_status, t.assigned_to,
                        COALESCE(ua.name, 'Unassigned') as assignee_name,
@@ -1225,12 +1235,26 @@ class Task extends CI_Controller
                        (SELECT started_at FROM tm_task_sessions WHERE task_id=t.task_id AND ended_at IS NULL AND status_flag='Active' LIMIT 1) as open_session_start
                 FROM tm_tasks t
                 LEFT JOIN tm_users ua ON ua.user_id = t.assigned_to
-                WHERE t.status_flag = 'Active' 
-                  AND t.status NOT IN ('done', 'closed')";
+                WHERE {$where}";
         
         $tasks = $this->db->query($sql)->result_array();
         
+        $now = time();
+        foreach ($tasks as &$t) {
+            $t['active_sec'] = 0;
+            if (!empty($t['open_session_start'])) {
+                $start_time = strtotime($t['open_session_start']);
+                if ($start_time > 0) {
+                    $t['active_sec'] = max(0, $now - $start_time);
+                }
+            }
+        }
+        
         header('Content-Type: application/json');
-        echo json_encode(array('success' => true, 'tasks' => $tasks));
+        echo json_encode(array(
+            'success' => true, 
+            'current_server_time' => time(),
+            'tasks' => $tasks
+        ));
     }
 }
