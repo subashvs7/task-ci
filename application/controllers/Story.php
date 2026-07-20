@@ -96,10 +96,12 @@ class Story extends CI_Controller
         $where = "s.status_flag='Active'";
         
         $role = $this->session->userdata(SESS_HEAD . '_role');
-        $uid = $this->session->userdata(SESS_HEAD . '_user_id');
+        $uid  = $this->session->userdata(SESS_HEAD . '_user_id');
 
-        // All roles can view all active user stories
-        // Role-based visibility restrictions have been removed
+        // ── Role-based scope: non-privileged users see only their own stories ──
+        if (!in_array($role, ['admin', 'manager', 'team_leader'])) {
+            $where .= " AND (s.created_by = {$uid} OR s.assignee_id = {$uid})";
+        }
 
         if ($f_project) $where .= " AND s.project_id=" . (int)$f_project;
         if ($f_epic)    $where .= " AND s.epic_id=" . (int)$f_epic;
@@ -140,8 +142,13 @@ class Story extends CI_Controller
             redirect($data['s_url']);
         }
 
+        // ── Role-aware task_count subquery ────────────────────────────────
+        $task_count_clause = !in_array($role, ['admin', 'manager', 'team_leader'])
+            ? " AND (created_by = {$uid} OR assigned_to = {$uid})"
+            : '';
+
         $sql = "SELECT s.*, p.name as project_name, p.created_by as project_creator, e.name as epic_name, e.created_by as epic_creator, e.estimated_time as epic_estimated_time, u.name as assignee_name, uc.name as creator_name,
-                    (SELECT COUNT(*) FROM tm_tasks WHERE story_id=s.story_id AND status_flag='Active') as task_count,
+                    (SELECT COUNT(*) FROM tm_tasks WHERE story_id=s.story_id AND status_flag='Active'{$task_count_clause}) as task_count,
                     COALESCE((SELECT SUM(estimated_hours) FROM tm_tasks WHERE story_id=s.story_id AND status_flag='Active'), 0) as calculated_time_hours
                 FROM tm_user_stories s
                 LEFT JOIN tm_projects p ON p.project_id = s.project_id
@@ -157,7 +164,11 @@ class Story extends CI_Controller
         $story_ids = array_column($data['record_list'], 'story_id');
         $tasks_by_story = [];
         if (!empty($story_ids)) {
-            $task_where = "t.story_id IN (" . implode(',', $story_ids) . ") AND t.status_flag='Active'";
+            // ── Role-based task scope within stories ──────────────────────────
+            $task_uid_clause = !in_array($role, ['admin', 'manager', 'team_leader'])
+                ? " AND (t.created_by = {$uid} OR t.assigned_to = {$uid})"
+                : '';
+            $task_where = "t.story_id IN (" . implode(',', $story_ids) . ") AND t.status_flag='Active'" . $task_uid_clause;
             
             // Only fetch parent tasks here
             $task_sql = "SELECT t.*, u.name as active_worker_name, ua.name as assignee_name,
@@ -229,7 +240,16 @@ class Story extends CI_Controller
         $f_epic    = $this->input->get('epic_id');
         $f_creator = $this->input->get('creator_id');
 
+        $uid  = $this->session->userdata(SESS_HEAD . '_user_id');
+        $role = $this->session->userdata(SESS_HEAD . '_role');
+
         $where = "s.status_flag='Active'";
+
+        // ── Role-based scope: non-privileged users see only their own stories ──
+        if (!in_array($role, ['admin', 'manager', 'team_leader'])) {
+            $where .= " AND (s.created_by = {$uid} OR s.assignee_id = {$uid})";
+        }
+
         if ($f_project) $where .= " AND s.project_id=" . (int)$f_project;
         if ($f_epic)    $where .= " AND s.epic_id=" . (int)$f_epic;
         if ($f_creator) $where .= " AND s.created_by=" . (int)$f_creator;
@@ -245,8 +265,13 @@ class Story extends CI_Controller
         $config['query_string_segment'] = 'offset';
         $this->pagination->initialize($config);
 
+        // ── Role-aware task_count subquery ────────────────────────────────
+        $task_count_clause = !in_array($role, ['admin', 'manager', 'team_leader'])
+            ? " AND (created_by = {$uid} OR assigned_to = {$uid})"
+            : '';
+
         $sql = "SELECT s.*, p.name as project_name, p.created_by as project_creator, e.name as epic_name, e.created_by as epic_creator, e.estimated_time as epic_estimated_time, u.name as assignee_name, uc.name as creator_name,
-                    (SELECT COUNT(*) FROM tm_tasks WHERE story_id=s.story_id AND status_flag='Active') as task_count,
+                    (SELECT COUNT(*) FROM tm_tasks WHERE story_id=s.story_id AND status_flag='Active'{$task_count_clause}) as task_count,
                     COALESCE((SELECT SUM(estimated_hours) FROM tm_tasks WHERE story_id=s.story_id AND status_flag='Active'), 0) as calculated_time_hours
                 FROM tm_user_stories s
                 LEFT JOIN tm_projects p ON p.project_id = s.project_id
@@ -262,7 +287,11 @@ class Story extends CI_Controller
         $story_ids = array_column($record_list, 'story_id');
         $tasks_by_story = [];
         if (!empty($story_ids)) {
-            $task_where = "t.story_id IN (" . implode(',', $story_ids) . ") AND t.status_flag='Active'";
+            // ── Role-based task scope within stories ──────────────────────────
+            $task_uid_clause = !in_array($role, ['admin', 'manager', 'team_leader'])
+                ? " AND (t.created_by = {$uid} OR t.assigned_to = {$uid})"
+                : '';
+            $task_where = "t.story_id IN (" . implode(',', $story_ids) . ") AND t.status_flag='Active'" . $task_uid_clause;
             
             $task_sql = "SELECT t.*, u.name as active_worker_name, ua.name as assignee_name,
                             (SELECT started_at FROM tm_task_sessions WHERE task_id=t.task_id AND ended_at IS NULL AND status_flag='Active' LIMIT 1) as open_session_start,

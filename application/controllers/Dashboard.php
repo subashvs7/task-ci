@@ -39,12 +39,18 @@ class Dashboard extends CI_Controller
         $r = $this->db->query("SELECT COUNT(*) as cnt FROM tm_projects WHERE status_flag='Active' AND status='active' AND $proj_auth")->row_array();
         $data['active_projects'] = $r['cnt'];
 
+        // ── Role-based task scope for dashboard counts ─────────────────────
+        $task_scope = '';
+        if (!in_array($role, ['admin', 'manager', 'team_leader'])) {
+            $task_scope = " AND (created_by = {$uid} OR assigned_to = {$uid})";
+        }
+
         // Total tasks
-        $r = $this->db->query("SELECT COUNT(*) as cnt FROM tm_tasks WHERE status_flag='Active'")->row_array();
+        $r = $this->db->query("SELECT COUNT(*) as cnt FROM tm_tasks WHERE status_flag='Active'{$task_scope}")->row_array();
         $data['total_tasks'] = $r['cnt'];
 
         // Overdue tasks
-        $r = $this->db->query("SELECT COUNT(*) as cnt FROM tm_tasks WHERE status_flag='Active' AND due_date < CURDATE() AND status NOT IN ('done','closed')")->row_array();
+        $r = $this->db->query("SELECT COUNT(*) as cnt FROM tm_tasks WHERE status_flag='Active' AND due_date < CURDATE() AND status NOT IN ('done','closed'){$task_scope}")->row_array();
         $data['overdue_tasks'] = $r['cnt'];
 
         // My tasks (assigned to me)
@@ -56,15 +62,13 @@ class Dashboard extends CI_Controller
         $data['my_open_tasks'] = $r['cnt'];
 
         // Done tasks
-        $r = $this->db->query("SELECT COUNT(*) as cnt FROM tm_tasks WHERE status_flag='Active' AND status IN ('done','closed')")->row_array();
+        $r = $this->db->query("SELECT COUNT(*) as cnt FROM tm_tasks WHERE status_flag='Active' AND status IN ('done','closed'){$task_scope}")->row_array();
         $data['done_tasks'] = $r['cnt'];
 
         // Recent tasks (last 10)
         $recent_where = "t.status_flag = 'Active'";
-        if ($role === 'team_leader') {
+        if (!in_array($role, ['admin', 'manager', 'team_leader'])) {
             $recent_where .= " AND (t.assigned_to = {$uid} OR t.created_by = {$uid})";
-        } elseif ($role === 'staff') {
-            $recent_where .= " AND t.assigned_to = {$uid}";
         }
 
         $sql = "SELECT t.*, p.name as project_name, u.name as assignee_name, ur.name as reporter_name,

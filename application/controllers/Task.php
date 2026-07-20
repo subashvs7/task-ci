@@ -259,7 +259,12 @@ class Task extends CI_Controller
 
         $role = $this->session->userdata(SESS_HEAD . '_role');
         $where = "t.status_flag = 'Active'";
-        
+
+        // ── Role-based scope: non-privileged users see only their own tasks ───
+        if (!in_array($role, ['admin', 'manager', 'team_leader'])) {
+            $where .= " AND (t.created_by = {$uid} OR t.assigned_to = {$uid})";
+        }
+
         if ($f_project)  $where .= " AND t.project_id = " . (int)$f_project;
         if ($f_story)    $where .= " AND t.story_id = " . (int)$f_story;
         if ($f_assigned) $where .= " AND t.assigned_to = " . (int)$f_assigned;
@@ -342,7 +347,12 @@ class Task extends CI_Controller
         $uid = $this->session->userdata(SESS_HEAD . '_user_id');
         $role = $this->session->userdata(SESS_HEAD . '_role');
         $where = "t.status_flag = 'Active'";
-        
+
+        // ── Role-based scope: non-privileged users see only their own tasks ───
+        if (!in_array($role, ['admin', 'manager', 'team_leader'])) {
+            $where .= " AND (t.created_by = {$uid} OR t.assigned_to = {$uid})";
+        }
+
         if ($f_project)  $where .= " AND t.project_id = " . (int)$f_project;
         if ($f_story)    $where .= " AND t.story_id = " . (int)$f_story;
         if ($f_assigned) $where .= " AND t.assigned_to = " . (int)$f_assigned;

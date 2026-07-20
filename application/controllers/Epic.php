@@ -218,7 +218,15 @@ class Epic extends CI_Controller
         $f_status  = $this->input->get('f_status');
 
         $this->load->library('pagination');
+        $role = $this->session->userdata(SESS_HEAD . '_role');
+        $uid  = $this->session->userdata(SESS_HEAD . '_user_id');
         $where = "e.status_flag='Active'";
+
+        // ── Role-based scope: non-privileged users see only epics they created ──
+        if (!in_array($role, ['admin', 'manager', 'team_leader'])) {
+            $where .= " AND e.created_by = {$uid}";
+        }
+
         if ($f_project) $where .= " AND e.project_id=" . (int)$f_project;
         if ($f_status)  $where .= " AND e.status='" . $this->db->escape_str($f_status) . "'";
 
@@ -239,8 +247,8 @@ class Epic extends CI_Controller
                 LIMIT {$offset}, 10";
         $data['record_list']   = $this->db->query($sql)->result_array();
         $data['pagination']    = $this->pagination->create_links();
-        $role = $this->session->userdata(SESS_HEAD . '_role');
-        $uid = $this->session->userdata(SESS_HEAD . '_user_id');
+        if (!isset($role)) $role = $this->session->userdata(SESS_HEAD . '_role');
+        if (!isset($uid))  $uid  = $this->session->userdata(SESS_HEAD . '_user_id');
         if ($role === 'team_leader') {
             $data['projects_list'] = $this->db->query("SELECT p.project_id, p.name FROM tm_projects p WHERE p.status_flag='Active' AND (p.owner_id=? OR p.project_id IN (SELECT project_id FROM tm_project_members WHERE user_id=?)) ORDER BY p.name", array($uid, $uid))->result_array();
         } else {
@@ -263,7 +271,16 @@ class Epic extends CI_Controller
         $f_project = $this->input->get('project_id');
         $f_status  = $this->input->get('f_status');
 
+        $uid  = $this->session->userdata(SESS_HEAD . '_user_id');
+        $role = $this->session->userdata(SESS_HEAD . '_role');
+
         $where = "e.status_flag='Active'";
+
+        // ── Role-based scope: non-privileged users see only epics they created ──
+        if (!in_array($role, ['admin', 'manager', 'team_leader'])) {
+            $where .= " AND e.created_by = {$uid}";
+        }
+
         if ($f_project) $where .= " AND e.project_id=" . (int)$f_project;
         if ($f_status)  $where .= " AND e.status='" . $this->db->escape_str($f_status) . "'";
 
