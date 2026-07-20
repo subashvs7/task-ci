@@ -680,8 +680,11 @@
     if (userTasksList.length === 0) return;
     
     const now = Math.floor(Date.now() / 1000);
-    // Use a 120-second window to handle browser timer throttling in background tabs
-    const NOTIFY_WINDOW_SEC = 120;
+    // Window for start/end time scheduling notifications (2 min to handle throttled tabs)
+    const SCHEDULE_WINDOW_SEC = 120;
+    // Balance warning thresholds
+    const BALANCE_WARN_5MIN_SEC  = 300; // fire when ≤ 5 minutes balance remain
+    const BALANCE_WARN_1MIN_SEC  = 90;  // fire again when ≤ ~1 minute balance remain
     
     userTasksList.forEach((task) => {
       const assignee = task.assignee_name || 'Unassigned';
@@ -700,15 +703,32 @@
         const totalLoggedSec = prevLoggedSec + activeSec;
         const balanceSec = estSec - totalLoggedSec;
 
-        if (balanceSec <= NOTIFY_WINDOW_SEC) {
+        // ── 5-minute early warning ────────────────────────────────────────────
+        if (balanceSec > BALANCE_WARN_1MIN_SEC && balanceSec <= BALANCE_WARN_5MIN_SEC) {
+          // Key uses floor-minute so it fires once per minute-band, not every 5s
+          const minuteBand = Math.ceil(balanceSec / 60);
+          const key = 'notified_balance5_' + task.task_id + '_' + task.estimated_hours + '_' + minuteBand;
+          if (!sessionStorage.getItem(key)) {
+            sessionStorage.setItem(key, 'true');
+            const remMins = Math.ceil(balanceSec / 60);
+            triggerLocalNotification(
+              '⏳ ' + remMins + ' Min Balance Warning',
+              'Task: "' + task.title + '" | Assignee: ' + assignee + ' | Only ' + remMins + ' min of estimate remaining! Please wrap up or stop work session.',
+              task.task_id
+            );
+          }
+        }
+
+        // ── Final 1-minute warning ────────────────────────────────────────────
+        if (balanceSec <= BALANCE_WARN_1MIN_SEC) {
           // Include estimated_hours in key so re-estimates re-trigger
-          const key = 'notified_balance_' + task.task_id + '_' + task.estimated_hours;
+          const key = 'notified_balance1_' + task.task_id + '_' + task.estimated_hours;
           if (!sessionStorage.getItem(key)) {
             sessionStorage.setItem(key, 'true');
             const remMins = Math.max(0, Math.ceil(balanceSec / 60));
             triggerLocalNotification(
-              '⚠️ 1 Min Balance Warning',
-              'Task: "' + task.title + '" | Assignee: ' + assignee + ' | Balance Time: ' + (remMins <= 1 ? '1 min' : remMins + ' mins') + ' remaining. Please turn off work session or complete task.',
+              '🚨 1 Min Balance Warning',
+              'Task: "' + task.title + '" | Assignee: ' + assignee + ' | Balance Time: ' + (remMins <= 1 ? '~1 min' : remMins + ' mins') + ' remaining. Please stop work session or complete task NOW.',
               task.task_id
             );
           }
@@ -720,7 +740,7 @@
         const startTs = parseDateToTimestamp(task.start_time);
         if (startTs > 0) {
           const timeDiff = startTs - now;
-          if (timeDiff >= 0 && timeDiff <= NOTIFY_WINDOW_SEC) {
+          if (timeDiff >= 0 && timeDiff <= SCHEDULE_WINDOW_SEC) {
             // Include start_time in key so if start_time changes the new one re-triggers
             const key = 'notified_start_' + task.task_id + '_' + startTs;
             if (!sessionStorage.getItem(key)) {
@@ -740,7 +760,7 @@
         const endTs = parseDateToTimestamp(task.end_time);
         if (endTs > 0) {
           const timeDiff = endTs - now;
-          if (timeDiff >= 0 && timeDiff <= NOTIFY_WINDOW_SEC) {
+          if (timeDiff >= 0 && timeDiff <= SCHEDULE_WINDOW_SEC) {
             // Include end_time in key so if end_time changes the new one re-triggers
             const key = 'notified_end_' + task.task_id + '_' + endTs;
             if (!sessionStorage.getItem(key)) {
