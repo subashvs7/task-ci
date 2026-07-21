@@ -71,24 +71,10 @@
         </button>
       </div>
     </div>
-    <div class="box-body table-responsive no-padding">
-      <table class="table table-hover table-bordered">
-        <thead>
-          <tr>
-            <th style="width:40px;">#</th>
-            <th>User</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th>Joined</th>
-            <th style="width:100px;">Actions</th>
-          </tr>
-        </thead>
-        <tbody id="user_list_tbody">
-          <?php include('user-list-rows.php'); ?>
-        </tbody>
-      </table>
+    <div class="box-body" id="user_list_tbody" style="padding: 15px;">
+      <?php include('user-list-rows.php'); ?>
     </div>
-    <div class="box-footer clearfix"><?php echo $pagination; ?></div>
+    <!-- <div class="box-footer clearfix"><?php echo isset($pagination)?$pagination:''; ?></div> -->
   </div>
 </section>
 
@@ -128,6 +114,14 @@
               foreach ($add_roles as $k => $v): ?>
               <option value="<?php echo $k; ?>"><?php echo $v; ?></option>
               <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="form-group"><label>Department <span class="text-danger">*</span></label>
+            <select name="department_id" class="form-control select2" style="width: 100%;" required>
+              <option value="">Select Department</option>
+              <?php if(isset($departments)): foreach($departments as $d): ?>
+                <option value="<?php echo $d['department_id']; ?>"><?php echo htmlspecialchars($d['department_name']); ?></option>
+              <?php endforeach; endif; ?>
             </select>
           </div>
 
@@ -176,6 +170,14 @@
               foreach ($edit_roles as $k => $v): ?>
               <option value="<?php echo $k; ?>"><?php echo $v; ?></option>
               <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="form-group"><label>Department <span class="text-danger">*</span></label>
+            <select name="department_id" id="edit_department_id" class="form-control select2" style="width: 100%;" required>
+              <option value="">Select Department</option>
+              <?php if(isset($departments)): foreach($departments as $d): ?>
+                <option value="<?php echo $d['department_id']; ?>"><?php echo htmlspecialchars($d['department_name']); ?></option>
+              <?php endforeach; endif; ?>
             </select>
           </div>
         </div>

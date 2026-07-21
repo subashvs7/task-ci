@@ -27,6 +27,17 @@ function exportTableToExcel(tableID, filename = ''){
 jQuery(function ($) {
     $('.select2').select2({ width: '100%' });
 
+    if ($('#project-tree-table').length > 0) {
+        $('#project-tree-table').DataTable({
+            'paging'      : true,
+            'lengthChange': true,
+            'searching'   : true,
+            'ordering'    : false, // Keep tree hierarchy sorted
+            'info'        : true,
+            'autoWidth'   : false,
+            'pageLength'  : 50
+        });
+    }
 
     // Chart Settings
     var pieOptions = {

@@ -1,0 +1,33 @@
+CREATE TABLE `tm_departments_info` (
+  `department_id` int(11) NOT NULL AUTO_INCREMENT,
+  `department_name` varchar(255) NOT NULL,
+  `status` enum('Active','Inactive') DEFAULT 'Active',
+  PRIMARY KEY (`department_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO `tm_departments_info` (`department_id`, `department_name`, `status`) VALUES
+(2, 'Administration', 'Active'),
+(3, 'Backend Development', 'Active'),
+(4, 'Software Development', 'Active'),
+(5, 'Full Stack Development', 'Active'),
+(6, 'Software Tester', 'Active'),  
+(8, 'Network Administration', 'Active'),
+(9, 'System Administration', 'Active'),
+(10, 'Cloud Operations (DevOps)', 'Active'),
+(11, 'User Interface UI Designers', 'Active'),
+(12, 'Business Analysts', 'Active'),
+(13, 'Product Owners', 'Active'),
+(14, 'User Experience (UX) Researchers', 'Active'),
+(15, 'Internal IT support', 'Active'),
+(16, 'Customer technical support', 'Active'),
+(17, 'Business Development', 'Active'),
+(18, 'Digital Marketing', 'Active'),
+(19, 'Pre-sales', 'Active'),
+(20, 'Recruitment', 'Active'),
+(21, 'Employee Relations', 'Active'),
+(22, 'Learning & Development', 'Active'),
+(23, 'Billing', 'Active'),
+(24, 'Payroll', 'Active'),
+(25, 'Financial planning', 'Active');
+
+ALTER TABLE `tm_users` ADD `department_id` INT NULL DEFAULT NULL AFTER `user_id`;

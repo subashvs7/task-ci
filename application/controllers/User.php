@@ -60,6 +60,7 @@ class User extends CI_Controller
                 'email'        => $this->input->post('email'),
                 'password'     => password_hash($password, PASSWORD_DEFAULT),
                 'role'         => $role_val,
+                'department_id'=> $this->input->post('department_id') ?: NULL,
                 'status'       => 'Active',
                 'created_by'   => $uid,
                 'created_date' => date('Y-m-d H:i:s'),
@@ -112,6 +113,7 @@ class User extends CI_Controller
                 'name'         => $this->input->post('name'),
                 'email'        => $this->input->post('email'),
                 'role'         => $role_val,
+                'department_id'=> $this->input->post('department_id') ?: NULL,
                 'updated_by'   => $uid,
                 'updated_date' => date('Y-m-d H:i:s'),
             );
@@ -172,26 +174,34 @@ class User extends CI_Controller
 
         $cnt = $this->db->query("SELECT COUNT(*) as cnt FROM tm_users WHERE {$where}")->row_array();
         $data['total_records'] = (int)$cnt['cnt'];
+        $data['sno'] = $this->uri->segment(2, 0);
 
-        $data['sno'] = $offset = $this->uri->segment(2, 0);
-        $config = $this->_pagination_config($data['s_url'], $data['total_records'], 30);
-        $this->pagination->initialize($config);
-
-        $data['record_list'] = $this->db->query(
+        // Group users by department for the accordion view
+        $raw_users = $this->db->query(
             "SELECT u.*,
                 (SELECT COUNT(*) FROM tm_tasks t WHERE t.assigned_to=u.user_id AND t.status_flag='Active') as task_count,
-                (SELECT COUNT(*) FROM tm_tasks t WHERE t.assigned_to=u.user_id AND t.status='in_progress' AND t.status_flag='Active') as active_task_count
-             FROM tm_users u WHERE {$where} 
-             ORDER BY FIELD(u.role, 'admin', 'manager', 'team_leader', 'staff'), u.created_date DESC 
-             LIMIT {$offset}, 30"
+                (SELECT COUNT(*) FROM tm_tasks t WHERE t.assigned_to=u.user_id AND t.status='in_progress' AND t.status_flag='Active') as active_task_count,
+                d.department_name
+             FROM tm_users u 
+             LEFT JOIN tm_departments_info d ON u.department_id = d.department_id
+             WHERE {$where} 
+             ORDER BY FIELD(u.role, 'admin', 'manager', 'team_leader', 'staff'), u.created_date DESC"
         )->result_array();
-        $data['pagination']    = $this->pagination->create_links();
+
+        $grouped_users = array();
+        foreach ($raw_users as $u) {
+            $dep = $u['department_name'] ?: 'Unassigned';
+            $grouped_users[$dep][] = $u;
+        }
+        $data['grouped_users'] = $grouped_users;
+        
         $data['f_search']      = $f_search;
         $data['f_role']        = $f_role;
         $data['f_status']      = $f_status;
         $data['projects_list'] = $this->db->query(
             "SELECT project_id, name FROM tm_projects WHERE status_flag='Active' ORDER BY name"
         )->result_array();
+        $data['departments']   = $this->db->query("SELECT * FROM tm_departments_info WHERE status='Active' ORDER BY department_name")->result_array();
 
         $this->load->view('page/users/user-list', $data);
     }
@@ -229,29 +239,25 @@ class User extends CI_Controller
         $cnt = $this->db->query("SELECT COUNT(*) as cnt FROM tm_users WHERE {$where}")->row_array();
         $total_records = (int)$cnt['cnt'];
 
-        $offset = (int)$this->input->get('offset');
-
-        $this->load->library('pagination');
-        $config = $this->_pagination_config('user-list', $total_records, 30);
-        $config['page_query_string'] = TRUE;
-        $config['query_string_segment'] = 'offset';
-        $this->pagination->initialize($config);
-
-        $record_list = $this->db->query(
+        $raw_users = $this->db->query(
             "SELECT u.*,
                 (SELECT COUNT(*) FROM tm_tasks t WHERE t.assigned_to=u.user_id AND t.status_flag='Active') as task_count,
-                (SELECT COUNT(*) FROM tm_tasks t WHERE t.assigned_to=u.user_id AND t.status='in_progress' AND t.status_flag='Active') as active_task_count
-             FROM tm_users u WHERE {$where} 
-             ORDER BY FIELD(u.role, 'admin', 'manager', 'team_leader', 'staff'), u.created_date DESC 
-             LIMIT {$offset}, 30"
+                (SELECT COUNT(*) FROM tm_tasks t WHERE t.assigned_to=u.user_id AND t.status='in_progress' AND t.status_flag='Active') as active_task_count,
+                d.department_name
+             FROM tm_users u 
+             LEFT JOIN tm_departments_info d ON u.department_id = d.department_id
+             WHERE {$where} 
+             ORDER BY FIELD(u.role, 'admin', 'manager', 'team_leader', 'staff'), u.created_date DESC"
         )->result_array();
-        $pagination = $this->pagination->create_links();
+
+        $grouped_users = array();
+        foreach ($raw_users as $u) {
+            $dep = $u['department_name'] ?: 'Unassigned';
+            $grouped_users[$dep][] = $u;
+        }
 
         $data = array(
-            'record_list' => $record_list,
-            'sno' => $offset,
-            'pagination' => $pagination,
-            'total_records' => $total_records,
+            'grouped_users' => $grouped_users,
             's_url' => 'user-list'
         );
 
@@ -261,7 +267,7 @@ class User extends CI_Controller
         echo json_encode(array(
             'success' => true,
             'html' => $html,
-            'pagination' => $pagination,
+            'pagination' => '',
             'total_records' => $total_records
         ));
     }

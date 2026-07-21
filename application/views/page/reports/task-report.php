@@ -19,7 +19,7 @@
     <div class="box-body">
       <form method="get" action="<?php echo site_url($s_url) ?>">
         <div class="row">
-          <div class="col-md-3"><div class="form-group"><label>Project</label>
+          <div class="col-md-2"><div class="form-group"><label>Project</label>
             <select name="project_id" class="form-control select2" onchange="this.form.submit()">
               <option value="">-- Select a Project --</option>
               <?php foreach ($projects_list as $p): ?>
@@ -27,24 +27,29 @@
               <?php endforeach; ?>
             </select>
           </div></div>
-          <div class="col-md-3"><div class="form-group"><label>Team Leader</label>
-            <select name="team_leader_id" class="form-control select2" onchange="this.form.submit()">
-              <option value="">-- All Team Leaders --</option>
-              <?php foreach ($team_leaders_list as $tl): ?>
-              <option value="<?php echo $tl['user_id']; ?>" <?php echo ($f_leader==$tl['user_id'])?'selected':''; ?>><?php echo htmlspecialchars($tl['name']); ?></option>
+          <div class="col-md-2"><div class="form-group"><label>From Date</label>
+            <input type="date" name="date_from" class="form-control" value="<?php echo htmlspecialchars($f_date_from); ?>" onchange="this.form.submit()">
+          </div></div>
+          <div class="col-md-2"><div class="form-group"><label>To Date</label>
+            <input type="date" name="date_to" class="form-control" value="<?php echo htmlspecialchars($f_date_to); ?>" onchange="this.form.submit()">
+          </div></div>
+          <div class="col-md-2"><div class="form-group"><label>Department</label>
+            <select name="department_id" id="department_id" class="form-control select2" onchange="this.form.submit()">
+              <option value="">-- All Departments --</option>
+              <?php foreach ($departments_list as $d): ?>
+              <option value="<?php echo $d['department_id']; ?>" <?php echo ($f_department==$d['department_id'])?'selected':''; ?>><?php echo htmlspecialchars($d['department_name']); ?></option>
               <?php endforeach; ?>
             </select>
           </div></div>
-          <div class="col-md-3"><div class="form-group"><label>Staff (Assignee)</label>
-            <select name="assignee_id" class="form-control select2" onchange="this.form.submit()">
+          <div class="col-md-2"><div class="form-group"><label>Staff (Assignee)</label>
+            <select name="assignee_id" id="assignee_id" class="form-control select2" onchange="this.form.submit()">
               <option value="">-- All Staff --</option>
               <?php foreach ($staff_list as $u): ?>
               <option value="<?php echo $u['user_id']; ?>" <?php echo ($f_assignee==$u['user_id'])?'selected':''; ?>><?php echo htmlspecialchars($u['name']); ?></option>
               <?php endforeach; ?>
             </select>
           </div></div>
-          <div class="col-md-3" style="padding-top:25px;">
-
+          <div class="col-md-2" style="padding-top:25px;">
               <button type="submit" name="export" value="excel" class="btn btn-success" title="Export Excel"><i class="fa fa-file-excel-o"></i> Excel</button>
             <a href="<?php echo site_url($s_url) ?>" class="btn btn-default">Reset</a>
           </div>
@@ -100,13 +105,13 @@
               <h4 style="margin-top: 0; margin-bottom: 15px;"><i class="fa fa-folder-open text-primary"></i> <strong>Project: <?php echo htmlspecialchars($project_details['name']); ?></strong></h4>
               
               <div class="table-responsive no-padding" style="border: 1px solid #d2d6de; border-radius: 4px; background:#fff;">
-                <table class="table table-hover table-bordered" style="margin-bottom:0; font-size:12px;">
+                <table id="project-tree-table" class="table table-hover table-bordered" style="margin-bottom:0; font-size:12px;">
                   <thead>
                     <tr style="background:#f4f5f7;">
                       <th style="width: 100px; text-align:center;">Type</th>
                       <th>Title / Name</th>
                       <th>Assignee</th>
-                      <th>Created By / Team Leader</th>
+                      <th style="width: 140px; text-align:center;">Created Date</th>
                       <th style="width: 160px; text-align:center;">Status</th>
                       <th style="width: 100px; text-align:center;">Priority</th>
                       <th style="width: 100px; text-align:center;">Est. Time</th>
@@ -141,11 +146,8 @@
                           </span>
                         </td>
                         <td style="vertical-align:middle;"><?php echo htmlspecialchars($row['assignee_name'] ?: '-'); ?></td>
-                        <td style="vertical-align:middle;">
-                          <?php echo htmlspecialchars($row['reporter_name'] ?: '-'); ?>
-                          <?php if (($row['item_type'] == 'Task' || $row['item_type'] == 'Sub Task') && !empty($row['assignee_name']) && !empty($row['reporter_name']) && $row['assignee_name'] !== '-' && $row['assignee_name'] === $row['reporter_name']): ?>
-                            <span class="label label-danger" style="font-size: 10px; margin-left: 5px; padding: 1px 4px; font-weight: bold; background-color: #dd4b39; display: inline-block;">Self Created</span>
-                          <?php endif; ?>
+                        <td style="vertical-align:middle; text-align:center;">
+                          <?php echo (isset($row['matches_filter']) ? $row['matches_filter'] : true) && $row['created_date'] ? date('M d, Y', strtotime($row['created_date'])) : '-'; ?>
                         </td>
                         <td style="text-align:center; vertical-align:middle;">
                           <?php if ($row['work_session_status'] === 'active'): ?>
@@ -177,7 +179,19 @@
                           <?php echo $row['estimated_hours'] ? htmlspecialchars($row['estimated_hours']) . 'h' : '-'; ?>
                         </td>
                         <td style="text-align:center; vertical-align:middle;">
-                          <?php echo $row['logged_hours'] ? htmlspecialchars($row['logged_hours']) . 'h' : '-'; ?>
+                          <?php 
+                            if ($row['logged_hours']) {
+                                $est = (float)$row['estimated_hours'];
+                                $logged = (float)$row['logged_hours'];
+                                if ($est > 0 && $logged > $est) {
+                                    echo '<span style="color: red; font-weight: bold;">' . htmlspecialchars($row['logged_hours']) . 'h</span>';
+                                } else {
+                                    echo '<span style="color: green; font-weight: bold;">' . htmlspecialchars($row['logged_hours']) . 'h</span>';
+                                }
+                            } else {
+                                echo '-';
+                            }
+                          ?>
                         </td>
                       </tr>
                     <?php endforeach; ?>

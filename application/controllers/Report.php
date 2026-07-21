@@ -21,7 +21,7 @@ class Report extends CI_Controller
         $data['s_url'] = 'task-report';
 
         $f_project   = $this->input->get('project_id');
-        $f_leader    = $this->input->get('team_leader_id');
+        $f_department = $this->input->get('department_id');
         $f_assignee  = $this->input->get('assignee_id');
         $f_status    = $this->input->get('f_status');
         $f_priority  = $this->input->get('f_priority');
@@ -31,8 +31,8 @@ class Report extends CI_Controller
 
         $where = "t.status_flag='Active'";
         if ($f_project)   $where .= " AND t.project_id=" . (int)$f_project;
+        if ($f_department) $where .= " AND t.assigned_to IN (SELECT user_id FROM tm_users WHERE department_id=" . (int)$f_department . ")";
         if ($f_assignee)  $where .= " AND t.assigned_to=" . (int)$f_assignee;
-        if ($f_leader)    $where .= " AND (t.reporter_id=" . (int)$f_leader . " OR t.created_by=" . (int)$f_leader . ")";
         if ($f_status)    $where .= " AND t.status='" . $this->db->escape_str($f_status) . "'";
         if ($f_priority)  $where .= " AND t.priority='" . $this->db->escape_str($f_priority) . "'";
         if ($f_type)      $where .= " AND t.type='" . $this->db->escape_str($f_type) . "'";
@@ -83,8 +83,8 @@ class Report extends CI_Controller
         ";
 
         if ($f_project)   $unified_sql .= " AND project_id=" . (int)$f_project;
+        if ($f_department) $unified_sql .= " AND assigned_to IN (SELECT user_id FROM tm_users WHERE department_id=" . (int)$f_department . ")";
         if ($f_assignee)  $unified_sql .= " AND assigned_to=" . (int)$f_assignee;
-        if ($f_leader)    $unified_sql .= " AND reporter_id=" . (int)$f_leader;
         if ($f_status)    $unified_sql .= " AND status='" . $this->db->escape_str($f_status) . "'";
         if ($f_priority)  $unified_sql .= " AND priority='" . $this->db->escape_str($f_priority) . "'";
         if ($f_date_from) $unified_sql .= " AND DATE(created_date)>='" . $this->db->escape_str($f_date_from) . "'";
@@ -92,41 +92,6 @@ class Report extends CI_Controller
 
         $unified_sql .= " ORDER BY created_date DESC";
 
-        if ($this->input->get('export') === 'excel') {
-            $export_list = $this->db->query($unified_sql)->result_array();
-
-            header('Content-Type: text/csv; charset=utf-8');
-            header('Content-Disposition: attachment; filename=Unified_Report_' . date('Ymd_His') . '.csv');
-            $output = fopen('php://output', 'w');
-            fputcsv($output, array('Item Type', 'Title', 'Project', 'Parent Item', 'Assignee', 'Created By', 'Status', 'Priority', 'Task Type', 'Est. Time (h)', 'Logged Time (h)', 'Due Date'));
-
-            $sl = TASK_STATUS_OPT;
-            $pl = TASK_PRIORITY_OPT;
-            $tl = TASK_TYPE_OPT;
-
-            foreach ($export_list as $row) {
-                $status = isset($sl[$row['status']]) ? $sl[$row['status']] : $row['status'];
-                $priority = isset($pl[$row['priority']]) ? $pl[$row['priority']] : $row['priority'];
-                $task_type = isset($tl[$row['task_type']]) ? $tl[$row['task_type']] : $row['task_type'];
-                
-                fputcsv($output, array(
-                    $row['item_type'],
-                    $row['title'],
-                    $row['project_name'] ? $row['project_name'] : '',
-                    $row['parent_name'] ? $row['parent_name'] : '',
-                    $row['assignee_name'] ? $row['assignee_name'] : '',
-                    $row['reporter_name'] ? $row['reporter_name'] : '',
-                    $status,
-                    $priority,
-                    $task_type,
-                    $row['estimated_hours'] ? $row['estimated_hours'] . ' hrs' : '0 hrs',
-                    $row['logged_hours'] ? $row['logged_hours'] . ' hrs' : '0 hrs',
-                    $row['due_date']
-                ));
-            }
-            fclose($output);
-            exit;
-        }
 
         $data['tasks_by_status']   = $this->db->query("SELECT status, COUNT(*) as cnt FROM tm_tasks t WHERE {$where} GROUP BY status")->result_array();
         $data['tasks_by_priority'] = $this->db->query("SELECT priority, COUNT(*) as cnt FROM tm_tasks t WHERE {$where} GROUP BY priority")->result_array();
@@ -151,30 +116,18 @@ class Report extends CI_Controller
         $data['record_list'] = $this->db->query($unified_sql . " LIMIT 500")->result_array();
 
         $data['projects_list'] = $this->db->query("SELECT project_id, name FROM tm_projects WHERE status_flag='Active' ORDER BY name")->result_array();
+        $data['departments_list'] = $this->db->query("SELECT department_id, department_name FROM tm_departments_info WHERE status='Active' ORDER BY department_name")->result_array();
         
-        // Cascading dropdown lists: load all if no project is selected
-        if ($f_project) {
-            $data['team_leaders_list'] = $this->db->query("
-                SELECT DISTINCT u.user_id, u.name 
-                FROM tm_users u
-                LEFT JOIN tm_projects p ON p.owner_id = u.user_id AND p.project_id = ? AND p.status_flag='Active'
-                LEFT JOIN tm_project_members m ON m.user_id = u.user_id AND m.project_id = ?
-                WHERE u.role='team_leader' AND u.status='Active'
-                  AND (p.project_id IS NOT NULL OR m.member_id IS NOT NULL OR u.user_id IN (SELECT reporter_id FROM tm_tasks WHERE project_id = ? AND status_flag='Active') OR u.user_id IN (SELECT created_by FROM tm_tasks WHERE project_id = ? AND status_flag='Active'))
-                ORDER BY u.name
-            ", array($f_project, $f_project, $f_project, $f_project))->result_array();
-
+        // Cascading dropdown lists
+        if ($f_department) {
             $data['staff_list'] = $this->db->query("
                 SELECT DISTINCT u.user_id, u.name 
                 FROM tm_users u
-                LEFT JOIN tm_project_members m ON m.user_id = u.user_id AND m.project_id = ?
-                WHERE u.role='staff' AND u.status='Active'
-                  AND (m.member_id IS NOT NULL OR u.user_id IN (SELECT assigned_to FROM tm_tasks WHERE project_id = ? AND status_flag='Active' AND assigned_to IS NOT NULL))
+                WHERE u.status='Active' AND u.department_id = ?
                 ORDER BY u.name
-            ", array($f_project, $f_project))->result_array();
+            ", array($f_department))->result_array();
         } else {
-            $data['team_leaders_list'] = $this->db->query("SELECT user_id, name FROM tm_users WHERE role='team_leader' AND status='Active' ORDER BY name")->result_array();
-            $data['staff_list'] = $this->db->query("SELECT user_id, name FROM tm_users WHERE role='staff' AND status='Active' ORDER BY name")->result_array();
+            $data['staff_list'] = $this->db->query("SELECT user_id, name FROM tm_users WHERE status='Active' ORDER BY name")->result_array();
         }
 
         // Build tree wise flow if project is selected
@@ -306,9 +259,17 @@ class Report extends CI_Controller
                 $root_epics[] = $eid;
             }
 
+            $department_users = array();
+            if ($f_department) {
+                $dep_res = $this->db->query("SELECT user_id FROM tm_users WHERE department_id = ?", array($f_department))->result_array();
+                foreach ($dep_res as $du) {
+                    $department_users[] = (int)$du['user_id'];
+                }
+            }
+
             // Filter match logic
-            $match_node = function($node) use ($f_leader, $f_assignee, $f_status, $f_priority, $f_type) {
-                if ($f_leader && (int)$node['reporter_id'] !== (int)$f_leader) {
+            $match_node = function($node) use ($f_department, $department_users, $f_assignee, $f_status, $f_priority, $f_type, $f_date_from, $f_date_to) {
+                if ($f_department && $node['assigned_to'] !== null && !in_array((int)$node['assigned_to'], $department_users)) {
                     return false;
                 }
                 if ($f_assignee && $node['assigned_to'] !== null && (int)$node['assigned_to'] !== (int)$f_assignee) {
@@ -321,6 +282,12 @@ class Report extends CI_Controller
                     return false;
                 }
                 if ($f_type && isset($node['task_type']) && $node['task_type'] && $node['task_type'] !== '-' && $node['task_type'] !== $f_type) {
+                    return false;
+                }
+                if ($f_date_from && isset($node['created_date']) && date('Y-m-d', strtotime($node['created_date'])) < $f_date_from) {
+                    return false;
+                }
+                if ($f_date_to && isset($node['created_date']) && date('Y-m-d', strtotime($node['created_date'])) > $f_date_to) {
                     return false;
                 }
                 return true;
@@ -425,7 +392,9 @@ class Report extends CI_Controller
                     'active_worker_name' => $t['active_worker_name'],
                     'work_session_status' => $t['work_session_status'],
                     'open_session_start' => $t['open_session_start'],
-                    'task_id' => $t['task_id']
+                    'task_id' => $t['task_id'],
+                    'created_date' => $t['created_date'],
+                    'matches_filter' => isset($t['matches_filter']) ? $t['matches_filter'] : true
                 );
 
                 $next_level = $level + 1;
@@ -446,7 +415,9 @@ class Report extends CI_Controller
                         'active_worker_name' => null,
                         'work_session_status' => null,
                         'open_session_start' => null,
-                        'task_id' => null
+                        'task_id' => null,
+                        'created_date' => $chk['created_date'],
+                        'matches_filter' => isset($chk['matches_filter']) ? $chk['matches_filter'] : true
                     );
                 }
 
@@ -473,7 +444,9 @@ class Report extends CI_Controller
                     'active_worker_name' => null,
                     'work_session_status' => null,
                     'open_session_start' => null,
-                    'task_id' => null
+                    'task_id' => null,
+                    'created_date' => $s['created_date'],
+                    'matches_filter' => isset($s['matches_filter']) ? $s['matches_filter'] : true
                 );
 
                 foreach ($s['tasks'] as $tid) {
@@ -499,7 +472,9 @@ class Report extends CI_Controller
                     'active_worker_name' => null,
                     'work_session_status' => null,
                     'open_session_start' => null,
-                    'task_id' => null
+                    'task_id' => null,
+                    'created_date' => $e['created_date'],
+                    'matches_filter' => isset($e['matches_filter']) ? $e['matches_filter'] : true
                 );
 
                 foreach ($e['direct_tasks'] as $tid) {
@@ -527,13 +502,111 @@ class Report extends CI_Controller
         }
 
         $data['f_project']     = $f_project;
-        $data['f_leader']      = $f_leader;
+        $data['f_department']  = $f_department;
         $data['f_assignee']    = $f_assignee;
         $data['f_status']      = $f_status;
         $data['f_priority']    = $f_priority;
         $data['f_type']        = $f_type;
         $data['f_date_from']   = $f_date_from;
         $data['f_date_to']     = $f_date_to;
+
+        if ($this->input->get('export') === 'excel') {
+            $export_list = array();
+            
+            if ($f_project && !empty($data['tree_rows'])) {
+                foreach ($data['tree_rows'] as $r) {
+                    $export_list[] = array(
+                        'item_type' => $r['item_type'],
+                        'title' => str_repeat('   ', $r['level']) . $r['title'],
+                        'project_name' => '',
+                        'parent_name' => $r['parent_name'],
+                        'assignee_name' => $r['assignee_name'],
+                        'created_date' => $r['created_date'],
+                        'matches_filter' => $r['matches_filter'],
+                        'status' => $r['status'],
+                        'priority' => $r['priority'],
+                        'task_type' => '',
+                        'estimated_hours' => $r['estimated_hours'],
+                        'logged_hours' => $r['logged_hours'],
+                        'due_date' => ''
+                    );
+                }
+            } else {
+                $export_list = $this->db->query($unified_sql)->result_array();
+            }
+
+            $filename_prefix = 'Unified_Report';
+            if ($f_assignee) {
+                $user_res = $this->db->query("SELECT name FROM tm_users WHERE user_id = ?", array((int)$f_assignee))->row_array();
+                if ($user_res) {
+                    $filename_prefix = preg_replace('/[^a-zA-Z0-9_-]/', '_', $user_res['name']) . '_Report';
+                }
+            }
+
+            header('Content-Type: application/vnd.ms-excel; charset=utf-8');
+            header('Content-Disposition: attachment; filename=' . $filename_prefix . '_' . date('Ymd_His') . '.xls');
+            
+            echo '<table border="1">';
+            echo '<tr>
+                    <th style="background-color:#f2f2f2;">Item Type</th>
+                    <th style="background-color:#f2f2f2;">Title</th>
+                    <th style="background-color:#f2f2f2;">Project</th>
+                    <th style="background-color:#f2f2f2;">Parent Item</th>
+                    <th style="background-color:#f2f2f2;">Assignee</th>
+                    <th style="background-color:#f2f2f2;">Created Date</th>
+                    <th style="background-color:#f2f2f2;">Status</th>
+                    <th style="background-color:#f2f2f2;">Priority</th>
+                    <th style="background-color:#f2f2f2;">Task Type</th>
+                    <th style="background-color:#f2f2f2;">Est. Time (h)</th>
+                    <th style="background-color:#f2f2f2;">Logged Time (h)</th>
+                    <th style="background-color:#f2f2f2;">Due Date</th>
+                  </tr>';
+
+            $sl = TASK_STATUS_OPT;
+            $pl = TASK_PRIORITY_OPT;
+            $tl = TASK_TYPE_OPT;
+
+            foreach ($export_list as $row) {
+                $status = isset($sl[$row['status']]) ? $sl[$row['status']] : $row['status'];
+                $priority = isset($pl[$row['priority']]) ? $pl[$row['priority']] : $row['priority'];
+                $task_type = isset($row['task_type']) ? (isset($tl[$row['task_type']]) ? $tl[$row['task_type']] : $row['task_type']) : '';
+                
+                $est_str = isset($row['estimated_hours']) && $row['estimated_hours'] ? $row['estimated_hours'] . ' hrs' : '0 hrs';
+                
+                // Color logic for logged time
+                $logged_val = isset($row['logged_hours']) ? (float)$row['logged_hours'] : 0;
+                $est_val = isset($row['estimated_hours']) ? (float)$row['estimated_hours'] : 0;
+                $logged_str = $logged_val ? $logged_val . ' hrs' : '0 hrs';
+                
+                $logged_td = '<td>' . htmlspecialchars($logged_str) . '</td>';
+                if ($logged_val > 0) {
+                    if ($est_val > 0 && $logged_val > $est_val) {
+                        $logged_td = '<td style="color:red; font-weight:bold;">' . htmlspecialchars($logged_str) . '</td>';
+                    } else {
+                        $logged_td = '<td style="color:green; font-weight:bold;">' . htmlspecialchars($logged_str) . '</td>';
+                    }
+                }
+
+                echo '<tr>';
+                echo '<td>' . htmlspecialchars($row['item_type']) . '</td>';
+                // Use a non-breaking space loop or just pre to preserve indentation if any
+                $title_text = str_replace('   ', '&nbsp;&nbsp;&nbsp;', htmlspecialchars($row['title']));
+                echo '<td>' . $title_text . '</td>';
+                echo '<td>' . htmlspecialchars(isset($row['project_name']) ? $row['project_name'] : '') . '</td>';
+                echo '<td>' . htmlspecialchars(isset($row['parent_name']) ? $row['parent_name'] : '') . '</td>';
+                echo '<td>' . htmlspecialchars(isset($row['assignee_name']) ? $row['assignee_name'] : '') . '</td>';
+                echo '<td>' . (isset($row['created_date']) && $row['created_date'] && (isset($row['matches_filter']) ? $row['matches_filter'] : true) ? date('M d, Y', strtotime($row['created_date'])) : '-') . '</td>';
+                echo '<td>' . htmlspecialchars($status) . '</td>';
+                echo '<td>' . htmlspecialchars($priority) . '</td>';
+                echo '<td>' . htmlspecialchars($task_type) . '</td>';
+                echo '<td>' . htmlspecialchars($est_str) . '</td>';
+                echo $logged_td;
+                echo '<td>' . htmlspecialchars(isset($row['due_date']) ? $row['due_date'] : '') . '</td>';
+                echo '</tr>';
+            }
+            echo '</table>';
+            exit;
+        }
 
         $this->load->view('page/reports/task-report', $data);
     }
@@ -668,5 +741,19 @@ class Report extends CI_Controller
 
         $data['analysis_data'] = $calculated_records;
         $this->load->view('page/reports/feasibility-analysis', $data);
+    }
+
+    public function get_staff_by_department()
+    {
+        $this->_auth();
+        $department_id = $this->input->post('department_id');
+        
+        if ($department_id) {
+            $staff = $this->db->query("SELECT user_id, name FROM tm_users WHERE status='Active' AND department_id = ? ORDER BY name", array($department_id))->result_array();
+        } else {
+            $staff = $this->db->query("SELECT user_id, name FROM tm_users WHERE status='Active' ORDER BY name")->result_array();
+        }
+        
+        echo json_encode(array('success' => true, 'staff' => $staff));
     }
 }

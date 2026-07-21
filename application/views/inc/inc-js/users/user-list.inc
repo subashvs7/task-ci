@@ -3,6 +3,7 @@ jQuery(function ($) {
 
     // Init select2 on role dropdown inside edit modal
     $('#edit_user_role').select2({ width: '100%', dropdownParent: $('#editUserModal') });
+    $('#edit_department_id').select2({ width: '100%', dropdownParent: $('#editUserModal') });
 
     // ── Edit modal populate ────────────────────────────────────────
     $(document).on('click', '.btn-edit-user', function () {
@@ -11,6 +12,7 @@ jQuery(function ($) {
         $('#edit_user_name').val($b.data('name'));
         $('#edit_user_email').val($b.data('email'));
         $('#edit_user_role').val($b.data('role')).trigger('change');
+        $('#edit_department_id').val($b.data('department_id')).trigger('change');
         $('#edit_password').val('');
         $('#editUserModal').modal('show');
     });

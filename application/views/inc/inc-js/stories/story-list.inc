@@ -233,6 +233,33 @@ jQuery(function ($) {
         $('#addSubTaskModal').modal('show');
     });
 
+    $('#addSubTaskModal form').on('submit', function(e) {
+        e.preventDefault();
+        var $form = $(this);
+        var storyId = $('#st_story_id').val();
+        var $btn = $form.find('button[type="submit"]');
+        var originalBtnText = $btn.html();
+        $btn.html('<i class="fa fa-spinner fa-spin"></i> Saving...').prop('disabled', true);
+
+        $.ajax({
+            url: $form.attr('action'),
+            type: $form.attr('method'),
+            data: $form.serialize(),
+            success: function(res) {
+                $('#addSubTaskModal').modal('hide');
+                $form[0].reset();
+                $btn.html(originalBtnText).prop('disabled', false);
+
+                window.openAccordionStoryId = storyId;
+                loadFilteredStories(0);
+            },
+            error: function() {
+                alert('Error saving task.');
+                $btn.html(originalBtnText).prop('disabled', false);
+            }
+        });
+    });
+
     $(document).on('click', '.btn-edit-task', function(e) {
         e.preventDefault();
         var $b = $(this);
@@ -415,26 +442,11 @@ jQuery(function ($) {
         });
     }
 
-    // Paste handling
-    window.addEventListener('paste', function(e) {
-        if (!$('#proofModal').is(':visible')) return;
-        if ($('#proof-upload-section').is(':hidden')) return; // Viewer only
-
-        var items = (e.clipboardData || e.originalEvent.clipboardData).items;
-        for (var index in items) {
-            var item = items[index];
-            if (item.kind === 'file') {
-                var blob = item.getAsFile();
-                uploadProofFile(blob);
-                e.preventDefault(); // Prevent default paste
-                break; // Upload one paste at a time
-            }
-        }
-    });
-
     // Drag and drop & Click handling
-    $('#proof-dropzone').on('click', function() {
-        $('#proof-file-input').click();
+    $('#proof-dropzone').on('click', function(e) {
+        if (e.target.id !== 'proof-file-input') {
+            $('#proof-file-input').click();
+        }
     });
 
     $('#proof-file-input').on('change', function(e) {
@@ -449,16 +461,19 @@ jQuery(function ($) {
     
     // Drag and drop events
     var $dropzone = $('#proof-dropzone');
-    $dropzone.on('dragover', function(e) {
+    $dropzone.on('dragenter dragover', function(e) {
         e.preventDefault();
+        e.stopPropagation();
         $(this).css('background', '#d2d7d3');
     });
     $dropzone.on('dragleave', function(e) {
         e.preventDefault();
+        e.stopPropagation();
         $(this).css('background', '#ecf0f1');
     });
     $dropzone.on('drop', function(e) {
         e.preventDefault();
+        e.stopPropagation();
         $(this).css('background', '#ecf0f1');
         var files = e.originalEvent.dataTransfer.files;
         if (files && files.length > 0) {
@@ -519,6 +534,14 @@ jQuery(function ($) {
                     $('#story_list_tbody').html(res.html);
                     $('.box-footer.clearfix').html(res.pagination);
                     bindPaginationClicks();
+                    
+                    if (window.openAccordionStoryId) {
+                        var $tr = $('.btn-edit-story[data-id="' + window.openAccordionStoryId + '"]').closest('tr');
+                        if ($tr.length) {
+                            $tr.next('.sub-tasks-row').show();
+                        }
+                        window.openAccordionStoryId = null;
+                    }
                 } else {
                     $('#story_list_tbody').html('<tr><td colspan="11" class="text-center text-danger" style="padding:30px;">Failed to load stories.</td></tr>');
                 }

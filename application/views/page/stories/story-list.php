@@ -309,10 +309,10 @@ function format_hours($decimal_hours) {
         
         <div id="proof-upload-section" style="display:none; margin-bottom: 20px;">
             <div id="proof-dropzone" style="border: 2px dashed #bdc3c7; border-radius: 8px; padding: 30px; text-align: center; background: #ecf0f1; cursor: pointer; transition: background 0.3s;">
-                <button type="button" class="btn btn-primary" style="border-radius:50%; width:60px; height:60px; margin-bottom:15px; font-size:24px;" onclick="$('#proof-file-input').click(); event.stopPropagation();">
+                <button type="button" class="btn btn-primary" style="border-radius:50%; width:60px; height:60px; margin-bottom:15px; font-size:24px; pointer-events: none;">
                     <i class="fa fa-plus"></i>
                 </button>
-                <h4 style="margin: 0; color: #7f8c8d;">Browse Files or Paste (Ctrl+V) an image here.</h4>
+                <h4 style="margin: 0; color: #7f8c8d;">Drag and Upload or Browse Files here.</h4>
                 <p class="text-muted" style="margin-top: 5px; font-size: 12px;">Maximum 5 images. Only images allowed.</p>
                 <input type="file" id="proof-file-input" accept="image/*" style="display:none;" multiple>
             </div>
