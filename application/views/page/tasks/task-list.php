@@ -30,59 +30,83 @@ function format_hours($decimal_hours) {
     <div class="alert alert-danger alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button><?php echo $this->session->flashdata('alert_error'); ?></div>
   <?php endif; ?>
 
-  <!-- Filter / Search Card -->
-  <div class="panel panel-default" style="border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #e3e8ee; margin-bottom: 20px;">
-    <div class="panel-body" style="padding: 15px 20px; background-color: #fdfdfd;">
+  <!-- Filter -->
+  <div class="box box-default <?php echo ($f_project || $f_status || $f_priority || $f_department || $f_assigned || $f_date_from || $f_date_to) ? '' : 'collapsed-box'; ?>">
+    <div class="box-header with-border" data-widget="collapse" style="cursor:pointer;">
+      <h3 class="box-title"><i class="fa fa-filter"></i> Filter</h3>
+      <div class="box-tools pull-right"><button class="btn btn-box-tool" data-widget="collapse"><i class="fa fa-plus"></i></button></div>
+    </div>
+    <div class="box-body">
       <form method="get" action="<?php echo site_url($s_url) ?>" id="taskFilterForm">
         <div class="row" style="margin-bottom: 10px;">
           
           <!-- Project Filter -->
-          <div class="col-md-3">
-            <select name="project_id" id="filter_project_id" class="form-control select2">
+          <div class="col-md-3 col-sm-6"><div class="form-group"><label>Project</label>
+            <select name="project_id" id="filter_project_id" class="form-control select2" style="width: 100%;">
               <option value="">All Projects</option>
               <?php foreach ($projects_list as $p): ?>
               <option value="<?php echo $p['project_id']; ?>" <?php echo ($f_project == $p['project_id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($p['name']); ?></option>
               <?php endforeach; ?>
             </select>
-          </div>
+          </div></div>
 
           <!-- Status Filter -->
-          <div class="col-md-2">
-            <select name="f_status" id="filter_f_status" class="form-control">
+          <div class="col-md-3 col-sm-6"><div class="form-group"><label>Status</label>
+            <select name="f_status" id="filter_f_status" class="form-control" style="width: 100%;">
               <option value="">All Statuses</option>
               <?php foreach (TASK_STATUS_OPT as $k => $v): ?>
               <option value="<?php echo $k; ?>" <?php echo ($f_status==$k)?'selected':''; ?>><?php echo $v; ?></option>
               <?php endforeach; ?>
             </select>
-          </div>
+          </div></div>
 
           <!-- Priority Filter -->
-          <div class="col-md-2">
-            <select name="f_priority" id="filter_f_priority" class="form-control">
+          <div class="col-md-3 col-sm-6"><div class="form-group"><label>Priority</label>
+            <select name="f_priority" id="filter_f_priority" class="form-control" style="width: 100%;">
               <option value="">All Priorities</option>
               <?php foreach (TASK_PRIORITY_OPT as $k => $v): ?>
               <option value="<?php echo $k; ?>" <?php echo ($f_priority==$k)?'selected':''; ?>><?php echo $v; ?></option>
               <?php endforeach; ?>
             </select>
-          </div>
-          
+          </div></div>
+
+          <!-- Department Filter -->
+          <div class="col-md-3 col-sm-6"><div class="form-group"><label>Department</label>
+            <select name="department_id" id="filter_department_id" class="form-control select2" style="width: 100%;">
+              <option value="">All Departments</option>
+              <?php if (isset($departments_list)): foreach ($departments_list as $d): ?>
+              <option value="<?php echo $d['department_id']; ?>" <?php echo (isset($f_department) && $f_department == $d['department_id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($d['department_name']); ?></option>
+              <?php endforeach; endif; ?>
+            </select>
+          </div></div>
+        </div>
+
+        <div class="row">
           <!-- Assignee Filter -->
-          <div class="col-md-3">
-            <select name="assigned_to" id="filter_assigned_to" class="form-control select2">
+          <div class="col-md-3 col-sm-6"><div class="form-group"><label>Assignee / Staff</label>
+            <select name="assigned_to" id="filter_assigned_to" class="form-control select2" style="width: 100%;">
               <option value="">All Assignees</option>
               <?php foreach ($filter_users_list as $u): ?>
               <option value="<?php echo $u['user_id']; ?>" <?php echo ($f_assigned==$u['user_id'])?'selected':''; ?>><?php echo htmlspecialchars($u['name']); ?> (<?php echo ucwords(str_replace('_', ' ', $u['role'])); ?>)</option>
               <?php endforeach; ?>
             </select>
-          </div>
+          </div></div>
+
+          <!-- From Date -->
+          <div class="col-md-3 col-sm-6"><div class="form-group"><label>From Date</label>
+            <input type="date" name="date_from" id="filter_date_from" class="form-control" value="<?php echo htmlspecialchars($f_date_from ?? ''); ?>">
+          </div></div>
+
+          <!-- To Date -->
+          <div class="col-md-3 col-sm-6"><div class="form-group"><label>To Date</label>
+            <input type="date" name="date_to" id="filter_date_to" class="form-control" value="<?php echo htmlspecialchars($f_date_to ?? ''); ?>">
+          </div></div>
 
           <!-- Reset Filter Button -->
-          <div class="col-md-2">
+          <div class="col-md-3 col-sm-6" style="padding-top:25px;">
             <button type="button" id="btn_reset_filters" class="btn btn-default btn-block"><i class="fa fa-refresh"></i> Reset</button>
           </div>
         </div>
-
-
       </form>
     </div>
   </div>

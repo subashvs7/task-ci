@@ -88,9 +88,12 @@ class Story extends CI_Controller
             redirect($data['s_url'] . '/' . $this->uri->segment(2, 0));
         }
 
-        $f_project = $this->input->get('project_id');
-        $f_epic    = $this->input->get('epic_id');
-        $f_creator = $this->input->get('creator_id');
+        $f_project    = $this->input->get('project_id');
+        $f_epic       = $this->input->get('epic_id');
+        $f_creator    = $this->input->get('creator_id');
+        $f_department = $this->input->get('department_id');
+        $f_date_from  = $this->input->get('date_from');
+        $f_date_to    = $this->input->get('date_to');
 
         $this->load->library('pagination');
         $where = "s.status_flag='Active'";
@@ -103,9 +106,12 @@ class Story extends CI_Controller
             $where .= " AND (s.created_by = {$uid} OR s.assignee_id = {$uid})";
         }
 
-        if ($f_project) $where .= " AND s.project_id=" . (int)$f_project;
-        if ($f_epic)    $where .= " AND s.epic_id=" . (int)$f_epic;
-        if ($f_creator) $where .= " AND s.created_by=" . (int)$f_creator;
+        if ($f_project)    $where .= " AND s.project_id=" . (int)$f_project;
+        if ($f_epic)       $where .= " AND s.epic_id=" . (int)$f_epic;
+        if ($f_creator)    $where .= " AND s.created_by=" . (int)$f_creator;
+        if ($f_department) $where .= " AND (s.created_by IN (SELECT user_id FROM tm_users WHERE department_id=" . (int)$f_department . ") OR s.assignee_id IN (SELECT user_id FROM tm_users WHERE department_id=" . (int)$f_department . "))";
+        if ($f_date_from)  $where .= " AND DATE(s.created_date) >= " . $this->db->escape($f_date_from);
+        if ($f_date_to)    $where .= " AND DATE(s.created_date) <= " . $this->db->escape($f_date_to);
 
         $cnt = $this->db->query("SELECT COUNT(*) as cnt FROM tm_user_stories s WHERE {$where}")->row_array();
         $data['total_records'] = (int)$cnt['cnt'];
@@ -218,12 +224,16 @@ class Story extends CI_Controller
             $st['tasks_list'] = isset($tasks_by_story[$st['story_id']]) ? $tasks_by_story[$st['story_id']] : [];
         }
         $data['pagination']    = $this->pagination->create_links();
-        $data['projects_list'] = $this->db->query("SELECT project_id, name FROM tm_projects WHERE status_flag='Active' ORDER BY name")->result_array();
-        $data['epics_list']    = $this->db->query("SELECT e.epic_id, e.name, e.project_id, e.created_by, u.name as creator_name FROM tm_epics e LEFT JOIN tm_users u ON u.user_id = e.created_by WHERE e.status_flag='Active' ORDER BY e.name")->result_array();
-        $data['users_list']    = $this->db->query("SELECT user_id, name FROM tm_users WHERE status='Active' ORDER BY name")->result_array();
-        $data['f_project']     = $f_project;
-        $data['f_epic']        = $f_epic;
-        $data['f_creator']     = $f_creator;
+        $data['projects_list']    = $this->db->query("SELECT project_id, name FROM tm_projects WHERE status_flag='Active' ORDER BY name")->result_array();
+        $data['epics_list']       = $this->db->query("SELECT e.epic_id, e.name, e.project_id, e.created_by, u.name as creator_name FROM tm_epics e LEFT JOIN tm_users u ON u.user_id = e.created_by WHERE e.status_flag='Active' ORDER BY e.name")->result_array();
+        $data['users_list']       = $this->db->query("SELECT user_id, name FROM tm_users WHERE status='Active' ORDER BY name")->result_array();
+        $data['departments_list'] = $this->db->query("SELECT department_id, department_name FROM tm_departments_info WHERE status='Active' ORDER BY department_name")->result_array();
+        $data['f_project']        = $f_project;
+        $data['f_epic']           = $f_epic;
+        $data['f_creator']        = $f_creator;
+        $data['f_department']     = $f_department;
+        $data['f_date_from']      = $f_date_from;
+        $data['f_date_to']        = $f_date_to;
 
         $this->load->view('page/stories/story-list', $data);
     }
@@ -236,9 +246,12 @@ class Story extends CI_Controller
             return;
         }
 
-        $f_project = $this->input->get('project_id');
-        $f_epic    = $this->input->get('epic_id');
-        $f_creator = $this->input->get('creator_id');
+        $f_project    = $this->input->get('project_id');
+        $f_epic       = $this->input->get('epic_id');
+        $f_creator    = $this->input->get('creator_id');
+        $f_department = $this->input->get('department_id');
+        $f_date_from  = $this->input->get('date_from');
+        $f_date_to    = $this->input->get('date_to');
 
         $uid  = $this->session->userdata(SESS_HEAD . '_user_id');
         $role = $this->session->userdata(SESS_HEAD . '_role');
@@ -250,9 +263,12 @@ class Story extends CI_Controller
             $where .= " AND (s.created_by = {$uid} OR s.assignee_id = {$uid})";
         }
 
-        if ($f_project) $where .= " AND s.project_id=" . (int)$f_project;
-        if ($f_epic)    $where .= " AND s.epic_id=" . (int)$f_epic;
-        if ($f_creator) $where .= " AND s.created_by=" . (int)$f_creator;
+        if ($f_project)    $where .= " AND s.project_id=" . (int)$f_project;
+        if ($f_epic)       $where .= " AND s.epic_id=" . (int)$f_epic;
+        if ($f_creator)    $where .= " AND s.created_by=" . (int)$f_creator;
+        if ($f_department) $where .= " AND (s.created_by IN (SELECT user_id FROM tm_users WHERE department_id=" . (int)$f_department . ") OR s.assignee_id IN (SELECT user_id FROM tm_users WHERE department_id=" . (int)$f_department . "))";
+        if ($f_date_from)  $where .= " AND DATE(s.created_date) >= " . $this->db->escape($f_date_from);
+        if ($f_date_to)    $where .= " AND DATE(s.created_date) <= " . $this->db->escape($f_date_to);
 
         $cnt = $this->db->query("SELECT COUNT(*) as cnt FROM tm_user_stories s WHERE {$where}")->row_array();
         $total_records = (int)$cnt['cnt'];

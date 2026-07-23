@@ -245,15 +245,18 @@ class Task extends CI_Controller
             redirect($redirect_url);
         }
 
-        $f_project  = $this->input->get('project_id');
-        $f_story    = $this->input->get('story_id');
-        $f_assigned = $this->input->get('assigned_to');
-        $f_status   = $this->input->get('f_status');
-        $f_priority = $this->input->get('f_priority');
-        $f_type     = $this->input->get('f_type');
-        $f_search   = $this->input->get('search');
-        $f_overdue  = $this->input->get('overdue');
-        $f_mine     = $this->input->get('mine');
+        $f_project    = $this->input->get('project_id');
+        $f_story      = $this->input->get('story_id');
+        $f_assigned   = $this->input->get('assigned_to');
+        $f_department = $this->input->get('department_id');
+        $f_date_from  = $this->input->get('date_from');
+        $f_date_to    = $this->input->get('date_to');
+        $f_status     = $this->input->get('f_status');
+        $f_priority   = $this->input->get('f_priority');
+        $f_type       = $this->input->get('f_type');
+        $f_search     = $this->input->get('search');
+        $f_overdue    = $this->input->get('overdue');
+        $f_mine       = $this->input->get('mine');
 
         $this->load->library('pagination');
 
@@ -265,15 +268,18 @@ class Task extends CI_Controller
             $where .= " AND (t.created_by = {$uid} OR t.assigned_to = {$uid})";
         }
 
-        if ($f_project)  $where .= " AND t.project_id = " . (int)$f_project;
-        if ($f_story)    $where .= " AND t.story_id = " . (int)$f_story;
-        if ($f_assigned) $where .= " AND t.assigned_to = " . (int)$f_assigned;
-        if ($f_status)   $where .= " AND t.status = '" . $this->db->escape_str($f_status) . "'";
-        if ($f_priority) $where .= " AND t.priority = '" . $this->db->escape_str($f_priority) . "'";
-        if ($f_type)     $where .= " AND t.type = '" . $this->db->escape_str($f_type) . "'";
-        if ($f_search)   $where .= " AND t.title LIKE '%" . $this->db->escape_like_str($f_search) . "%'";
-        if ($f_overdue)  $where .= " AND t.due_date < CURDATE() AND t.status NOT IN ('done','closed')";
-        if ($f_mine)     $where .= " AND t.assigned_to = " . (int)$uid;
+        if ($f_project)    $where .= " AND t.project_id = " . (int)$f_project;
+        if ($f_story)      $where .= " AND t.story_id = " . (int)$f_story;
+        if ($f_assigned)   $where .= " AND t.assigned_to = " . (int)$f_assigned;
+        if ($f_department) $where .= " AND (t.assigned_to IN (SELECT user_id FROM tm_users WHERE department_id=" . (int)$f_department . ") OR t.created_by IN (SELECT user_id FROM tm_users WHERE department_id=" . (int)$f_department . "))";
+        if ($f_date_from)  $where .= " AND DATE(t.created_date) >= " . $this->db->escape($f_date_from);
+        if ($f_date_to)    $where .= " AND DATE(t.created_date) <= " . $this->db->escape($f_date_to);
+        if ($f_status)     $where .= " AND t.status = '" . $this->db->escape_str($f_status) . "'";
+        if ($f_priority)   $where .= " AND t.priority = '" . $this->db->escape_str($f_priority) . "'";
+        if ($f_type)       $where .= " AND t.type = '" . $this->db->escape_str($f_type) . "'";
+        if ($f_search)     $where .= " AND t.title LIKE '%" . $this->db->escape_like_str($f_search) . "%'";
+        if ($f_overdue)    $where .= " AND t.due_date < CURDATE() AND t.status NOT IN ('done','closed')";
+        if ($f_mine)       $where .= " AND t.assigned_to = " . (int)$uid;
 
         $cnt = (int)$this->db->query("SELECT COUNT(*) as cnt FROM tm_tasks t WHERE {$where}")->row_array()['cnt'];
         $data['total_records'] = $cnt;
@@ -308,20 +314,24 @@ class Task extends CI_Controller
                 LIMIT {$offset}, 10";
         $data['record_list']   = $this->db->query($sql)->result_array();
         $data['pagination']    = $this->pagination->create_links();
-        $data['projects_list'] = $this->db->query("SELECT project_id, name FROM tm_projects WHERE status_flag='Active' ORDER BY name")->result_array();
-        $data['epics_list']    = $this->db->query("SELECT epic_id, name, project_id FROM tm_epics WHERE status_flag='Active' ORDER BY name")->result_array();
-        $data['stories_list']  = $this->db->query("SELECT story_id, name, epic_id, project_id FROM tm_user_stories WHERE status_flag='Active' ORDER BY name")->result_array();
-        $data['users_list']    = get_assignable_users($f_project);
+        $data['projects_list']     = $this->db->query("SELECT project_id, name FROM tm_projects WHERE status_flag='Active' ORDER BY name")->result_array();
+        $data['epics_list']        = $this->db->query("SELECT epic_id, name, project_id FROM tm_epics WHERE status_flag='Active' ORDER BY name")->result_array();
+        $data['stories_list']      = $this->db->query("SELECT story_id, name, epic_id, project_id FROM tm_user_stories WHERE status_flag='Active' ORDER BY name")->result_array();
+        $data['users_list']        = get_assignable_users($f_project);
         $data['filter_users_list'] = $this->db->query("SELECT user_id, name, role FROM tm_users WHERE status='Active' ORDER BY name")->result_array();
-        $data['f_project']     = $f_project;
-        $data['f_story']       = $f_story;
-        $data['f_assigned']    = $f_assigned;
-        $data['f_status']      = $f_status;
-        $data['f_priority']    = $f_priority;
-        $data['f_type']        = $f_type;
-        $data['f_search']      = $f_search;
-        $data['f_overdue']     = $f_overdue;
-        $data['f_mine']        = $f_mine;
+        $data['departments_list']  = $this->db->query("SELECT department_id, department_name FROM tm_departments_info WHERE status='Active' ORDER BY department_name")->result_array();
+        $data['f_project']         = $f_project;
+        $data['f_story']           = $f_story;
+        $data['f_assigned']        = $f_assigned;
+        $data['f_department']      = $f_department;
+        $data['f_date_from']       = $f_date_from;
+        $data['f_date_to']         = $f_date_to;
+        $data['f_status']          = $f_status;
+        $data['f_priority']        = $f_priority;
+        $data['f_type']            = $f_type;
+        $data['f_search']          = $f_search;
+        $data['f_overdue']         = $f_overdue;
+        $data['f_mine']            = $f_mine;
 
         $this->load->view('page/tasks/task-list', $data);
     }
@@ -334,15 +344,18 @@ class Task extends CI_Controller
             return;
         }
 
-        $f_project  = $this->input->get('project_id');
-        $f_story    = $this->input->get('story_id');
-        $f_assigned = $this->input->get('assigned_to');
-        $f_status   = $this->input->get('f_status');
-        $f_priority = $this->input->get('f_priority');
-        $f_type     = $this->input->get('f_type');
-        $f_search   = $this->input->get('search');
-        $f_overdue  = $this->input->get('overdue');
-        $f_mine     = $this->input->get('mine');
+        $f_project    = $this->input->get('project_id');
+        $f_story      = $this->input->get('story_id');
+        $f_assigned   = $this->input->get('assigned_to');
+        $f_department = $this->input->get('department_id');
+        $f_date_from  = $this->input->get('date_from');
+        $f_date_to    = $this->input->get('date_to');
+        $f_status     = $this->input->get('f_status');
+        $f_priority   = $this->input->get('f_priority');
+        $f_type       = $this->input->get('f_type');
+        $f_search     = $this->input->get('search');
+        $f_overdue    = $this->input->get('overdue');
+        $f_mine       = $this->input->get('mine');
 
         $uid = $this->session->userdata(SESS_HEAD . '_user_id');
         $role = $this->session->userdata(SESS_HEAD . '_role');
@@ -353,15 +366,18 @@ class Task extends CI_Controller
             $where .= " AND (t.created_by = {$uid} OR t.assigned_to = {$uid})";
         }
 
-        if ($f_project)  $where .= " AND t.project_id = " . (int)$f_project;
-        if ($f_story)    $where .= " AND t.story_id = " . (int)$f_story;
-        if ($f_assigned) $where .= " AND t.assigned_to = " . (int)$f_assigned;
-        if ($f_status)   $where .= " AND t.status = '" . $this->db->escape_str($f_status) . "'";
-        if ($f_priority) $where .= " AND t.priority = '" . $this->db->escape_str($f_priority) . "'";
-        if ($f_type)     $where .= " AND t.type = '" . $this->db->escape_str($f_type) . "'";
-        if ($f_search)   $where .= " AND t.title LIKE '%" . $this->db->escape_like_str($f_search) . "%'";
-        if ($f_overdue)  $where .= " AND t.due_date < CURDATE() AND t.status NOT IN ('done','closed')";
-        if ($f_mine)     $where .= " AND t.assigned_to = " . (int)$uid;
+        if ($f_project)    $where .= " AND t.project_id = " . (int)$f_project;
+        if ($f_story)      $where .= " AND t.story_id = " . (int)$f_story;
+        if ($f_assigned)   $where .= " AND t.assigned_to = " . (int)$f_assigned;
+        if ($f_department) $where .= " AND (t.assigned_to IN (SELECT user_id FROM tm_users WHERE department_id=" . (int)$f_department . ") OR t.created_by IN (SELECT user_id FROM tm_users WHERE department_id=" . (int)$f_department . "))";
+        if ($f_date_from)  $where .= " AND DATE(t.created_date) >= " . $this->db->escape($f_date_from);
+        if ($f_date_to)    $where .= " AND DATE(t.created_date) <= " . $this->db->escape($f_date_to);
+        if ($f_status)     $where .= " AND t.status = '" . $this->db->escape_str($f_status) . "'";
+        if ($f_priority)   $where .= " AND t.priority = '" . $this->db->escape_str($f_priority) . "'";
+        if ($f_type)       $where .= " AND t.type = '" . $this->db->escape_str($f_type) . "'";
+        if ($f_search)     $where .= " AND t.title LIKE '%" . $this->db->escape_like_str($f_search) . "%'";
+        if ($f_overdue)    $where .= " AND t.due_date < CURDATE() AND t.status NOT IN ('done','closed')";
+        if ($f_mine)       $where .= " AND t.assigned_to = " . (int)$uid;
 
         $cnt = (int)$this->db->query("SELECT COUNT(*) as cnt FROM tm_tasks t WHERE {$where}")->row_array()['cnt'];
 

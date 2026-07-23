@@ -2,6 +2,14 @@
 jQuery(function ($) {
     $('.select2').select2({ width: '100%' });
 
+    // Recalculate Select2 width when filter box is expanded
+    $(document).on('click', '.box-header[data-widget="collapse"]', function () {
+        var $box = $(this).closest('.box');
+        setTimeout(function() {
+            $box.find('.select2').select2({ width: '100%' });
+        }, 150);
+    });
+
     // ── Cascading Dropdowns for Add/Edit Modals ──────────────────────────────────
     function ajaxLoadEpics(projectId, epicSelectSelector, selectedEpicId, storySelectSelector, selectedStoryId) {
         var $epic = $(epicSelectSelector);
@@ -512,12 +520,44 @@ jQuery(function ($) {
         });
     });
 
+    // Helper to load users filtered by department
+    function loadUsersByDepartment(departmentId, selectedUserId, callback) {
+        var $assignedSelect = $('#filter_assigned_to');
+        $.ajax({
+            url: '<?php echo site_url("get-users-dropdown"); ?>',
+            type: 'GET',
+            data: { department_id: departmentId || '' },
+            dataType: 'json',
+            success: function(res) {
+                if (res.success) {
+                    var html = '<option value="">All Assignees</option>';
+                    $.each(res.users, function(i, u) {
+                        html += '<option value="' + u.user_id + '">' + u.name + '</option>';
+                    });
+                    $assignedSelect.html(html);
+                    if (selectedUserId) {
+                        $assignedSelect.val(selectedUserId);
+                    } else {
+                        $assignedSelect.val('');
+                    }
+                    $assignedSelect.trigger('change.select2');
+                    if (typeof callback === 'function') {
+                        callback();
+                    }
+                }
+            }
+        });
+    }
+
     // ── AJAX Task List Filtering ─────────────────────────────────────────────
     function loadFilteredTasks(offset) {
-        var projectId = $('#filter_project_id').val();
-        var status = $('#filter_f_status').val();
-        var priority = $('#filter_f_priority').val();
-        var assignedTo = $('#filter_assigned_to').val();
+        var projectId    = $('#filter_project_id').val();
+        var status       = $('#filter_f_status').val();
+        var priority     = $('#filter_f_priority').val();
+        var departmentId = $('#filter_department_id').val();
+        var assignedTo   = $('#filter_assigned_to').val();
+        var dateFrom     = $('#filter_date_from').val();
+        var dateTo       = $('#filter_date_to').val();
 
         // Show spinner inside tbody
         $('#task_list_tbody').html('<tr><td colspan="15" class="text-center text-muted" style="padding:30px;"><i class="fa fa-spinner fa-spin"></i> Loading tasks...</td></tr>');
@@ -529,7 +569,10 @@ jQuery(function ($) {
                 project_id: projectId,
                 f_status: status,
                 f_priority: priority,
+                department_id: departmentId,
                 assigned_to: assignedTo,
+                date_from: dateFrom,
+                date_to: dateTo,
                 offset: offset || 0
             },
             dataType: 'json',
@@ -562,8 +605,19 @@ jQuery(function ($) {
     }
 
     // Wire up filter triggers
-    $(document).on('change', '#filter_project_id, #filter_f_status, #filter_f_priority, #filter_assigned_to', function() {
+    $(document).on('change', '#filter_project_id, #filter_f_status, #filter_f_priority, #filter_assigned_to, #filter_date_from, #filter_date_to', function() {
         loadFilteredTasks(0);
+    });
+
+    // Filter Department change listener - loads related staff into Assignee dropdown
+    $(document).on('change', '#filter_department_id', function(e, data) {
+        if (data && data.programmatic) {
+            return;
+        }
+        var departmentId = $(this).val();
+        loadUsersByDepartment(departmentId, null, function() {
+            loadFilteredTasks(0);
+        });
     });
 
     // Reset filters handler
@@ -571,9 +625,14 @@ jQuery(function ($) {
         $('#filter_project_id').val('').trigger('change.select2');
         $('#filter_f_status').val('');
         $('#filter_f_priority').val('');
+        $('#filter_department_id').val('').trigger('change.select2');
         $('#filter_assigned_to').val('').trigger('change.select2');
+        $('#filter_date_from').val('');
+        $('#filter_date_to').val('');
 
-        loadFilteredTasks(0);
+        loadUsersByDepartment('', null, function() {
+            loadFilteredTasks(0);
+        });
     });
 
     // Initialize pagination handlers on page load

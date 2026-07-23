@@ -325,10 +325,43 @@ jQuery(function ($) {
         });
     });
 
+    // Helper to load users filtered by department
+    function loadUsersByDepartment(departmentId, selectedCreatorId, callback) {
+        var $creatorSelect = $('#filter_epic_creator');
+        $.ajax({
+            url: '<?php echo site_url("get-users-dropdown"); ?>',
+            type: 'GET',
+            data: { department_id: departmentId || '' },
+            dataType: 'json',
+            success: function(res) {
+                if (res.success) {
+                    var html = '<option value="">All Creators</option>';
+                    $.each(res.users, function(i, u) {
+                        html += '<option value="' + u.user_id + '">' + u.name + '</option>';
+                    });
+                    $creatorSelect.html(html);
+                    if (selectedCreatorId) {
+                        $creatorSelect.val(selectedCreatorId);
+                    } else {
+                        $creatorSelect.val('');
+                    }
+                    $creatorSelect.trigger('change.select2');
+                    if (typeof callback === 'function') {
+                        callback();
+                    }
+                }
+            }
+        });
+    }
+
     // Helper to load filtered epics via AJAX
     function loadFilteredEpics(offset) {
-        var projectId = $('#filter_epic_project').val();
-        var status = $('#filter_epic_status').val();
+        var projectId    = $('#filter_epic_project').val();
+        var status       = $('#filter_epic_status').val();
+        var departmentId = $('#filter_epic_department').val();
+        var creatorId    = $('#filter_epic_creator').val();
+        var dateFrom     = $('#filter_epic_date_from').val();
+        var dateTo       = $('#filter_epic_date_to').val();
         
         // Show loading state in tbody
         $('#epic_list_tbody').html('<tr><td colspan="8" class="text-center text-muted" style="padding:30px;"><i class="fa fa-spinner fa-spin"></i> Loading epics...</td></tr>');
@@ -339,6 +372,10 @@ jQuery(function ($) {
             data: {
                 project_id: projectId,
                 f_status: status,
+                department_id: departmentId,
+                creator_id: creatorId,
+                date_from: dateFrom,
+                date_to: dateTo,
                 offset: offset || 0
             },
             dataType: 'json',
@@ -400,6 +437,17 @@ jQuery(function ($) {
         bindPaginationClicks();
     })();
 
+    // Ensure all filter select2 elements are styled at 100% width
+    $('.box-body .select2').select2({ width: '100%' });
+
+    // Recalculate Select2 width when filter box is expanded
+    $(document).on('click', '.box-header[data-widget="collapse"]', function () {
+        var $box = $(this).closest('.box');
+        setTimeout(function() {
+            $box.find('.select2').select2({ width: '100%' });
+        }, 150);
+    });
+
     // Filter Project change listener
     $(document).on('change', '#filter_epic_project', function(e, data) {
         if (data && data.programmatic) {
@@ -416,15 +464,46 @@ jQuery(function ($) {
         loadFilteredEpics(0);
     });
 
+    // Filter Department change listener - loads related staff into Creator dropdown
+    $(document).on('change', '#filter_epic_department', function(e, data) {
+        if (data && data.programmatic) {
+            return;
+        }
+        var departmentId = $(this).val();
+        loadUsersByDepartment(departmentId, null, function() {
+            loadFilteredEpics(0);
+        });
+    });
+
+    // Filter Creator change listener
+    $(document).on('change', '#filter_epic_creator', function(e, data) {
+        if (data && data.programmatic) {
+            return;
+        }
+        loadFilteredEpics(0);
+    });
+
+    // Filter Date change listeners
+    $(document).on('change', '#filter_epic_date_from, #filter_epic_date_to', function() {
+        loadFilteredEpics(0);
+    });
+
     // Reset Filters listener
     $(document).on('click', '#btn_reset_filters', function() {
         $('#filter_epic_project').val('').trigger('change', [{ programmatic: true }]);
         $('#filter_epic_status').val('').trigger('change', [{ programmatic: true }]);
+        $('#filter_epic_department').val('').trigger('change', [{ programmatic: true }]);
+        $('#filter_epic_creator').val('').trigger('change', [{ programmatic: true }]);
+        $('#filter_epic_date_from').val('');
+        $('#filter_epic_date_to').val('');
         
         $('#filter_epic_project').trigger('change.select2');
         $('#filter_epic_status').trigger('change.select2');
+        $('#filter_epic_department').trigger('change.select2');
 
-        loadFilteredEpics(0);
+        loadUsersByDepartment('', null, function() {
+            loadFilteredEpics(0);
+        });
     });
 
 });

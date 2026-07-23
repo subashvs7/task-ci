@@ -25,7 +25,7 @@ function format_hours($decimal_hours) {
   <?php endif; ?>
 
   <!-- Filter -->
-  <div class="box box-default collapsed-box">
+  <div class="box box-default <?php echo ($f_project || $f_status || $f_creator || $f_department || $f_date_from || $f_date_to) ? '' : 'collapsed-box'; ?>">
     <div class="box-header with-border" data-widget="collapse" style="cursor:pointer;">
       <h3 class="box-title"><i class="fa fa-filter"></i> Filter</h3>
       <div class="box-tools pull-right"><button class="btn btn-box-tool" data-widget="collapse"><i class="fa fa-plus"></i></button></div>
@@ -33,24 +33,44 @@ function format_hours($decimal_hours) {
     <div class="box-body">
       <form method="get" action="<?php echo site_url($s_url) ?>">
         <div class="row">
-          <div class="col-md-4">
-            <div class="form-group"><label>Project</label>
-              <select name="project_id" id="filter_epic_project" class="form-control select2">
-                <option value="">All Projects</option>
-              </select>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="form-group"><label>Status</label>
-              <select name="f_status" id="filter_epic_status" class="form-control select2">
-                <option value="">All Status</option>
-                <?php foreach (array('open'=>'Open','in_progress'=>'Working','done'=>'Done','closed'=>'Closed') as $k=>$v): ?>
-                <option value="<?php echo $k; ?>" <?php echo ($f_status==$k)?'selected':''; ?>><?php echo $v; ?></option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-          </div>
-          <div class="col-md-2" style="padding-top:25px;">
+          <div class="col-md-3 col-sm-6"><div class="form-group"><label>Project</label>
+            <select name="project_id" id="filter_epic_project" class="form-control select2" style="width: 100%;">
+              <option value="">All Projects</option>
+            </select>
+          </div></div>
+          <div class="col-md-3 col-sm-6"><div class="form-group"><label>Status</label>
+            <select name="f_status" id="filter_epic_status" class="form-control select2" style="width: 100%;">
+              <option value="">All Status</option>
+              <?php foreach (array('open'=>'Open','in_progress'=>'Working','done'=>'Done','closed'=>'Closed') as $k=>$v): ?>
+              <option value="<?php echo $k; ?>" <?php echo ($f_status==$k)?'selected':''; ?>><?php echo $v; ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div></div>
+          <div class="col-md-3 col-sm-6"><div class="form-group"><label>Department</label>
+            <select name="department_id" id="filter_epic_department" class="form-control select2" style="width: 100%;">
+              <option value="">All Departments</option>
+              <?php if (isset($departments_list)): foreach ($departments_list as $d): ?>
+              <option value="<?php echo $d['department_id']; ?>" <?php echo (isset($f_department) && $f_department == $d['department_id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($d['department_name']); ?></option>
+              <?php endforeach; endif; ?>
+            </select>
+          </div></div>
+          <div class="col-md-3 col-sm-6"><div class="form-group"><label>Creator / Staff</label>
+            <select name="creator_id" id="filter_epic_creator" class="form-control select2" style="width: 100%;">
+              <option value="">All Creators</option>
+              <?php foreach ($users_list as $u): ?>
+              <option value="<?php echo $u['user_id']; ?>" <?php echo (isset($f_creator) && $f_creator == $u['user_id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($u['name']); ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div></div>
+        </div>
+        <div class="row">
+          <div class="col-md-3 col-sm-6"><div class="form-group"><label>From Date</label>
+            <input type="date" name="date_from" id="filter_epic_date_from" class="form-control" value="<?php echo htmlspecialchars($f_date_from ?? ''); ?>">
+          </div></div>
+          <div class="col-md-3 col-sm-6"><div class="form-group"><label>To Date</label>
+            <input type="date" name="date_to" id="filter_epic_date_to" class="form-control" value="<?php echo htmlspecialchars($f_date_to ?? ''); ?>">
+          </div></div>
+          <div class="col-md-3 col-sm-6" style="padding-top:25px;">
             <button type="button" id="btn_reset_filters" class="btn btn-default btn-block"><i class="fa fa-refresh"></i> Reset</button>
           </div>
         </div>

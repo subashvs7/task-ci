@@ -580,6 +580,22 @@ class General extends CI_Controller
         ", array($epic_id))->result_array();
         echo json_encode(array('success' => true, 'stories' => $stories));
     }
+
+    public function get_users_dropdown()
+    {
+        $this->_auth();
+        header('Content-Type: application/json');
+        $department_id = $this->input->get('department_id');
+
+        $where = "status='Active'";
+        if ($department_id !== null && $department_id !== '') {
+            $where .= " AND department_id = " . (int)$department_id;
+        }
+
+        $users = $this->db->query("SELECT user_id, name, department_id FROM tm_users WHERE {$where} ORDER BY name")->result_array();
+        echo json_encode(array('success' => true, 'users' => $users));
+    }
+
      // -------------------------------------------------------------------------
     // One-Time Safe Database Schema Migration
     // -------------------------------------------------------------------------

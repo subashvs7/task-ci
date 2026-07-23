@@ -29,7 +29,17 @@ jQuery(function ($) {
                 dropdownParent: $modal
             });
         });
+    // Ensure all filter select2 elements are initialized with 100% width
+    $('.box-body .select2').select2({ width: '100%' });
+
+    // Recalculate Select2 width when filter box is expanded
+    $(document).on('click', '.box-header[data-widget="collapse"]', function () {
+        var $box = $(this).closest('.box');
+        setTimeout(function() {
+            $box.find('.select2').select2({ width: '100%' });
+        }, 150);
     });
+
 
 
 
@@ -510,11 +520,43 @@ jQuery(function ($) {
         });
     }
 
+    // Helper to load users filtered by department
+    function loadUsersByDepartment(departmentId, selectedCreatorId, callback) {
+        var $creatorSelect = $('#filter_story_creator');
+        $.ajax({
+            url: '<?php echo site_url("get-users-dropdown"); ?>',
+            type: 'GET',
+            data: { department_id: departmentId || '' },
+            dataType: 'json',
+            success: function(res) {
+                if (res.success) {
+                    var html = '<option value="">All Creators</option>';
+                    $.each(res.users, function(i, u) {
+                        html += '<option value="' + u.user_id + '">' + u.name + '</option>';
+                    });
+                    $creatorSelect.html(html);
+                    if (selectedCreatorId) {
+                        $creatorSelect.val(selectedCreatorId);
+                    } else {
+                        $creatorSelect.val('');
+                    }
+                    $creatorSelect.trigger('change.select2');
+                    if (typeof callback === 'function') {
+                        callback();
+                    }
+                }
+            }
+        });
+    }
+
     // Helper to load filtered stories via AJAX
     function loadFilteredStories(offset) {
-        var projectId = $('#filter_story_project').val();
-        var epicId = $('#filter_story_epic').val();
-        var creatorId = $('#filter_story_creator').val();
+        var projectId    = $('#filter_story_project').val();
+        var epicId       = $('#filter_story_epic').val();
+        var departmentId = $('#filter_story_department').val();
+        var creatorId    = $('#filter_story_creator').val();
+        var dateFrom     = $('#filter_story_date_from').val();
+        var dateTo       = $('#filter_story_date_to').val();
         
         // Show loading state in tbody
         $('#story_list_tbody').html('<tr><td colspan="11" class="text-center text-muted" style="padding:30px;"><i class="fa fa-spinner fa-spin"></i> Loading stories...</td></tr>');
@@ -525,7 +567,10 @@ jQuery(function ($) {
             data: {
                 project_id: projectId,
                 epic_id: epicId,
+                department_id: departmentId,
                 creator_id: creatorId,
+                date_from: dateFrom,
+                date_to: dateTo,
                 offset: offset || 0
             },
             dataType: 'json',
@@ -627,6 +672,17 @@ jQuery(function ($) {
         loadFilteredStories(0);
     });
 
+    // Filter Department change listener - loads related staff into Creator dropdown
+    $(document).on('change', '#filter_story_department', function(e, data) {
+        if (data && data.programmatic) {
+            return;
+        }
+        var departmentId = $(this).val();
+        loadUsersByDepartment(departmentId, null, function() {
+            loadFilteredStories(0);
+        });
+    });
+
     // Filter Creator change listener
     $(document).on('change', '#filter_story_creator', function(e, data) {
         if (data && data.programmatic) {
@@ -635,17 +691,27 @@ jQuery(function ($) {
         loadFilteredStories(0);
     });
 
+    // Filter Date change listeners
+    $(document).on('change', '#filter_story_date_from, #filter_story_date_to', function() {
+        loadFilteredStories(0);
+    });
+
     // Reset Filters listener
     $(document).on('click', '#btn_reset_filters', function() {
         $('#filter_story_project').val('').trigger('change', [{ programmatic: true }]);
         $('#filter_story_epic').html('<option value="">All Epics</option>').val('').trigger('change', [{ programmatic: true }]);
+        $('#filter_story_department').val('').trigger('change', [{ programmatic: true }]);
         $('#filter_story_creator').val('').trigger('change', [{ programmatic: true }]);
+        $('#filter_story_date_from').val('');
+        $('#filter_story_date_to').val('');
         
         $('#filter_story_project').trigger('change.select2');
         $('#filter_story_epic').trigger('change.select2');
-        $('#filter_story_creator').trigger('change.select2');
+        $('#filter_story_department').trigger('change.select2');
 
-        loadFilteredStories(0);
+        loadUsersByDepartment('', null, function() {
+            loadFilteredStories(0);
+        });
     });
 
 });

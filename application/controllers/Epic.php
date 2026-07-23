@@ -214,8 +214,12 @@ class Epic extends CI_Controller
             redirect($data['s_url'] . '/' . $this->uri->segment(2, 0));
         }
 
-        $f_project = $this->input->get('project_id');
-        $f_status  = $this->input->get('f_status');
+        $f_project    = $this->input->get('project_id');
+        $f_status     = $this->input->get('f_status');
+        $f_creator    = $this->input->get('creator_id');
+        $f_department = $this->input->get('department_id');
+        $f_date_from  = $this->input->get('date_from');
+        $f_date_to    = $this->input->get('date_to');
 
         $this->load->library('pagination');
         $role = $this->session->userdata(SESS_HEAD . '_role');
@@ -227,8 +231,12 @@ class Epic extends CI_Controller
             $where .= " AND e.created_by = {$uid}";
         }
 
-        if ($f_project) $where .= " AND e.project_id=" . (int)$f_project;
-        if ($f_status)  $where .= " AND e.status='" . $this->db->escape_str($f_status) . "'";
+        if ($f_project)    $where .= " AND e.project_id=" . (int)$f_project;
+        if ($f_status)     $where .= " AND e.status='" . $this->db->escape_str($f_status) . "'";
+        if ($f_creator)    $where .= " AND e.created_by=" . (int)$f_creator;
+        if ($f_department) $where .= " AND e.created_by IN (SELECT user_id FROM tm_users WHERE department_id=" . (int)$f_department . ")";
+        if ($f_date_from)  $where .= " AND DATE(e.created_date) >= " . $this->db->escape($f_date_from);
+        if ($f_date_to)    $where .= " AND DATE(e.created_date) <= " . $this->db->escape($f_date_to);
 
         $cnt = $this->db->query("SELECT COUNT(*) as cnt FROM tm_epics e WHERE {$where}")->row_array();
         $data['total_records'] = (int)$cnt['cnt'];
@@ -254,8 +262,14 @@ class Epic extends CI_Controller
         } else {
             $data['projects_list'] = $this->db->query("SELECT project_id, name FROM tm_projects WHERE status_flag='Active' ORDER BY name")->result_array();
         }
-        $data['f_project']     = $f_project;
-        $data['f_status']      = $f_status;
+        $data['departments_list'] = $this->db->query("SELECT department_id, department_name FROM tm_departments_info WHERE status='Active' ORDER BY department_name")->result_array();
+        $data['users_list']       = $this->db->query("SELECT user_id, name FROM tm_users WHERE status='Active' ORDER BY name")->result_array();
+        $data['f_project']        = $f_project;
+        $data['f_status']         = $f_status;
+        $data['f_creator']        = $f_creator;
+        $data['f_department']     = $f_department;
+        $data['f_date_from']      = $f_date_from;
+        $data['f_date_to']        = $f_date_to;
 
         $this->load->view('page/epics/epic-list', $data);
     }
@@ -268,8 +282,12 @@ class Epic extends CI_Controller
             return;
         }
 
-        $f_project = $this->input->get('project_id');
-        $f_status  = $this->input->get('f_status');
+        $f_project    = $this->input->get('project_id');
+        $f_status     = $this->input->get('f_status');
+        $f_creator    = $this->input->get('creator_id');
+        $f_department = $this->input->get('department_id');
+        $f_date_from  = $this->input->get('date_from');
+        $f_date_to    = $this->input->get('date_to');
 
         $uid  = $this->session->userdata(SESS_HEAD . '_user_id');
         $role = $this->session->userdata(SESS_HEAD . '_role');
@@ -281,8 +299,12 @@ class Epic extends CI_Controller
             $where .= " AND e.created_by = {$uid}";
         }
 
-        if ($f_project) $where .= " AND e.project_id=" . (int)$f_project;
-        if ($f_status)  $where .= " AND e.status='" . $this->db->escape_str($f_status) . "'";
+        if ($f_project)    $where .= " AND e.project_id=" . (int)$f_project;
+        if ($f_status)     $where .= " AND e.status='" . $this->db->escape_str($f_status) . "'";
+        if ($f_creator)    $where .= " AND e.created_by=" . (int)$f_creator;
+        if ($f_department) $where .= " AND e.created_by IN (SELECT user_id FROM tm_users WHERE department_id=" . (int)$f_department . ")";
+        if ($f_date_from)  $where .= " AND DATE(e.created_date) >= " . $this->db->escape($f_date_from);
+        if ($f_date_to)    $where .= " AND DATE(e.created_date) <= " . $this->db->escape($f_date_to);
 
         $cnt = $this->db->query("SELECT COUNT(*) as cnt FROM tm_epics e WHERE {$where}")->row_array();
         $total_records = (int)$cnt['cnt'];

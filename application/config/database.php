@@ -6,10 +6,10 @@ $query_builder = TRUE;
 
 $db['default'] = array(
     'dsn'          => '',
-    'hostname'     => 'localhost',
-    'username'     => 'root', // development
-    'password'     => '', // development
-    'database'     => 'u128207985_task_db', // development
+    'hostname'     => '192.168.0.37',
+    'username'     => 'zazu', // development
+    'password'     => 'zazu@123', // development
+    'database'     => 'task_manager_db', // development
     // 'username'     => 'u128207985_task_db', // production
     // 'password'     => 'xD9$Ih2mzE&', // production
     // 'database'     => 'u128207985_task_db', // production
